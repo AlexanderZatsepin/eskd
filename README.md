@@ -134,6 +134,7 @@ python manage.py runserver 0.0.0.0:8010
 APPLOAD -> autocad/eskd_auth.lsp
 APPLOAD -> autocad/eskd_project_drawing_crud.lsp
 APPLOAD -> autocad/eskd_wire_endpoint_crud.lsp
+APPLOAD -> autocad/eskd_ui.lsp
 ```
 
 Команды авторизации:
@@ -141,6 +142,10 @@ APPLOAD -> autocad/eskd_wire_endpoint_crud.lsp
 - `ESKD_LOGIN`
 - `ESKD_STATUS`
 - `ESKD_LOGOUT`
+
+Простой интерфейс:
+
+- `ESKD` - открыть DCL-окно с кнопками авторизации, синхронизации и отчетов
 
 Команды проекта:
 

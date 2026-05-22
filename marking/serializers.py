@@ -42,6 +42,7 @@ class WireEndpointSerializer(serializers.ModelSerializer):
     project_id = serializers.CharField(source="drawing.project.project_id", read_only=True)
     order_number = serializers.CharField(source="drawing.project.order_number", read_only=True)
     dwg_id = serializers.CharField(source="drawing.dwg_id", read_only=True)
+    sync_status = serializers.CharField(required=False, allow_blank=True)
 
     class Meta:
         model = WireEndpoint
@@ -73,4 +74,7 @@ class WireEndpointSerializer(serializers.ModelSerializer):
         }
 
     def validate_sync_status(self, value):
-        return value or WireEndpoint.SyncStatus.NEW
+        allowed_values = {choice.value for choice in WireEndpoint.SyncStatus}
+        if not value or value not in allowed_values:
+            return WireEndpoint.SyncStatus.NEW
+        return value

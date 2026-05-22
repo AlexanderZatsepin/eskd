@@ -2,9 +2,11 @@
 ;;; Load after autocad/eskd_auth.lsp.
 ;;;
 ;;; Project block attributes:
+;;;   Block name: Block_Test_Project
 ;;;   PROJECT_ID, ORDER_NUMBER, PROJECT_NAME, DESCRIPTION
 ;;;
 ;;; Drawing block attributes:
+;;;   Block name: Block_Test_Drawing
 ;;;   PROJECT_ID, ORDER_NUMBER, DWG_ID, DWG_NAME, FILE_NAME
 ;;;
 ;;; Commands:
@@ -12,6 +14,10 @@
 ;;;   ESKD_DRAWING_GET, ESKD_DRAWING_CREATE, ESKD_DRAWING_UPDATE, ESKD_DRAWING_DELETE, ESKD_DRAWING_SYNC
 
 (vl-load-com)
+
+(setq *eskd-project-block-name* "BLOCK_TEST_PROJECT")
+(setq *eskd-drawing-block-name* "BLOCK_TEST_DRAWING")
+(setq *eskd-marking-block-name* "BLOCK_TEST_MARKING")
 
 (defun eskd-require-auth ()
   (if (and *eskd-server-url* *eskd-token*)
@@ -127,6 +133,44 @@
         entity
         (progn
           (princ "\nSelected entity is not a block reference.")
+          nil
+        )
+      )
+    )
+    nil
+  )
+)
+
+(defun eskd-block-name (entity / object name effective-name)
+  (setq name (cdr (assoc 2 (entget entity))))
+  (setq object (vlax-ename->vla-object entity))
+  (if (vlax-property-available-p object 'EffectiveName)
+    (progn
+      (setq effective-name (vlax-get-property object 'EffectiveName))
+      (if effective-name
+        (setq name effective-name)
+      )
+    )
+  )
+  (strcase name)
+)
+
+(defun eskd-select-named-block (prompt expected-name / entity actual-name)
+  (setq entity (eskd-select-block prompt))
+  (if entity
+    (progn
+      (setq actual-name (eskd-block-name entity))
+      (if (= actual-name (strcase expected-name))
+        entity
+        (progn
+          (princ
+            (strcat
+              "\nWrong block name. Expected: "
+              expected-name
+              ", selected: "
+              actual-name
+            )
+          )
           nil
         )
       )
@@ -259,7 +303,7 @@
 )
 
 (defun eskd-project-selected-attrs (/ entity attrs)
-  (setq entity (eskd-select-block "\nSelect project block: "))
+  (setq entity (eskd-select-named-block "\nSelect project block: " *eskd-project-block-name*))
   (if entity
     (progn
       (setq attrs (eskd-block-attrs entity))
@@ -273,7 +317,7 @@
 )
 
 (defun eskd-drawing-selected-attrs (/ entity attrs)
-  (setq entity (eskd-select-block "\nSelect drawing block: "))
+  (setq entity (eskd-select-named-block "\nSelect drawing block: " *eskd-drawing-block-name*))
   (if entity
     (progn
       (setq attrs (eskd-block-attrs entity))

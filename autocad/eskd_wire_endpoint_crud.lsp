@@ -4,6 +4,7 @@
 ;;;   autocad/eskd_project_drawing_crud.lsp
 ;;;
 ;;; WireEndpoint block attributes:
+;;;   Block name: Block_Test_Marking
 ;;;   ENDPOINT_ID, PROJECT_ID, ORDER_NUMBER, DWG_ID, REF_ID,
 ;;;   MARK, POSITION, WIRE_TYPE, WIRE_COLOR, SYNC_STATUS
 ;;;
@@ -22,7 +23,7 @@
 )
 
 (defun eskd-wire-selected-entity-and-attrs (prompt / entity attrs)
-  (setq entity (eskd-select-block prompt))
+  (setq entity (eskd-select-named-block prompt *eskd-marking-block-name*))
   (if entity
     (progn
       (setq attrs (eskd-block-attrs entity))

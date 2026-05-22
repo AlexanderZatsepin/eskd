@@ -174,6 +174,7 @@ APPLOAD -> autocad/eskd_wire_endpoint_crud.lsp
 Атрибуты блока проекта:
 
 ```text
+Block name: Block_Test_Project
 PROJECT_ID
 ORDER_NUMBER
 PROJECT_NAME
@@ -183,6 +184,7 @@ DESCRIPTION
 Атрибуты блока чертежа:
 
 ```text
+Block name: Block_Test_Drawing
 PROJECT_ID
 ORDER_NUMBER
 DWG_ID
@@ -202,6 +204,7 @@ FILE_NAME
 Атрибуты блока маркировки:
 
 ```text
+Block name: Block_Test_Marking
 ENDPOINT_ID
 PROJECT_ID
 ORDER_NUMBER

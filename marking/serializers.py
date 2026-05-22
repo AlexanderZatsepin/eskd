@@ -61,12 +61,15 @@ class WireEndpointSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["project_id", "order_number", "dwg_id", "created_at", "updated_at"]
+        read_only_fields = [
+            "endpoint_id",
+            "project_id",
+            "order_number",
+            "dwg_id",
+            "created_at",
+            "updated_at",
+        ]
         extra_kwargs = {
-            "endpoint_id": {
-                "allow_blank": True,
-                "required": False,
-            },
             "ref_id": {"allow_blank": True, "required": False},
             "mark": {"allow_blank": True, "required": False},
             "position": {"allow_blank": True, "required": False},

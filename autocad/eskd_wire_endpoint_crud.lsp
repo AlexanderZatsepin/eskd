@@ -89,7 +89,6 @@
 (defun eskd-wire-body (attrs drawing-id)
   (eskd-json-object
     (list
-      (eskd-json-string "endpoint_id" (eskd-attr attrs "ENDPOINT_ID"))
       (eskd-json-number "drawing" drawing-id)
       (eskd-json-string "ref_id" (eskd-attr attrs "REF_ID"))
       (eskd-json-string "mark" (eskd-attr attrs "MARK"))

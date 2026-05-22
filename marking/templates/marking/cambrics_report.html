@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <title>Таблица кембриков</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 40px;
+      color: #1f2933;
+    }
+
+    form {
+      max-width: 420px;
+    }
+
+    label {
+      display: block;
+      font-weight: 700;
+      margin: 18px 0 6px;
+    }
+
+    input {
+      box-sizing: border-box;
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #b8c2cc;
+      border-radius: 4px;
+      font-size: 15px;
+    }
+
+    button {
+      margin-top: 22px;
+      padding: 11px 16px;
+      border: 0;
+      border-radius: 4px;
+      background: #1f4e79;
+      color: #fff;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .error {
+      max-width: 620px;
+      margin: 18px 0;
+      padding: 12px 14px;
+      border: 1px solid #e2a3a3;
+      border-radius: 4px;
+      background: #fff5f5;
+      color: #9b1c1c;
+    }
+  </style>
+</head>
+<body>
+  <h1>Таблица кембриков</h1>
+
+  {% if error %}
+    <div class="error">{{ error }}</div>
+  {% endif %}
+
+  <form method="post">
+    {% csrf_token %}
+
+    <label for="project_id">PROJECT_ID</label>
+    <input id="project_id" name="project_id" value="{{ project_id|default:'' }}" required>
+
+    <label for="order_number">ORDER_NUMBER</label>
+    <input id="order_number" name="order_number" value="{{ order_number|default:'' }}" required>
+
+    <button type="submit">Скачать Excel</button>
+  </form>
+</body>
+</html>

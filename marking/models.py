@@ -1,3 +1,5 @@
+import uuid
+
 from django.db import models
 
 
@@ -50,7 +52,7 @@ class WireEndpoint(models.Model):
         DIRTY = "DIRTY", "Dirty"
         ERROR = "ERROR", "Error"
 
-    endpoint_id = models.CharField(max_length=32, primary_key=True)
+    endpoint_id = models.CharField(max_length=32, primary_key=True, blank=True)
     drawing = models.ForeignKey(Drawing, on_delete=models.CASCADE, related_name="wire_endpoints")
     ref_id = models.CharField(max_length=64)
     mark = models.CharField(max_length=128)
@@ -74,3 +76,15 @@ class WireEndpoint(models.Model):
 
     def __str__(self):
         return f"{self.endpoint_id}: {self.mark}"
+
+    def save(self, *args, **kwargs):
+        if not self.endpoint_id:
+            self.endpoint_id = self._generate_endpoint_id()
+        super().save(*args, **kwargs)
+
+    @classmethod
+    def _generate_endpoint_id(cls):
+        while True:
+            endpoint_id = f"END-{uuid.uuid4().hex[:9].upper()}"
+            if not cls.objects.filter(endpoint_id=endpoint_id).exists():
+                return endpoint_id

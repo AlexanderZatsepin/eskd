@@ -7,6 +7,7 @@
 ;;;   Block name: Block_Test_Marking
 ;;;   ENDPOINT_ID, PROJECT_ID, ORDER_NUMBER, DWG_ID, REF_ID,
 ;;;   MARK, POSITION, WIRE_TYPE, WIRE_COLOR, SYNC_STATUS
+;;;   ENDPOINT_ID may be empty before the first successful sync.
 ;;;
 ;;; Commands:
 ;;;   ESKD_WIRE_GET, ESKD_WIRE_CREATE, ESKD_WIRE_UPDATE, ESKD_WIRE_DELETE, ESKD_WIRE_SYNC
@@ -19,6 +20,10 @@
 )
 
 (defun eskd-wire-crud-required-tags ()
+  '("PROJECT_ID" "ORDER_NUMBER" "DWG_ID" "REF_ID" "MARK" "POSITION")
+)
+
+(defun eskd-wire-existing-required-tags ()
   '("ENDPOINT_ID" "PROJECT_ID" "ORDER_NUMBER" "DWG_ID" "REF_ID" "MARK" "POSITION")
 )
 
@@ -61,6 +66,24 @@
       nil
     )
   )
+)
+
+(defun eskd-store-created-endpoint-id (entity result / status response endpoint-id)
+  (setq status (car result))
+  (setq response (cadr result))
+  (if (and (>= status 200) (< status 300))
+    (progn
+      (setq endpoint-id (eskd-json-token-value response "endpoint_id"))
+      (if (eskd-non-empty endpoint-id)
+        (progn
+          (eskd-set-block-attr entity "ENDPOINT_ID" endpoint-id)
+          (eskd-set-block-attr entity "SYNC_STATUS" "SYNCED")
+          (princ (strcat "\nENDPOINT_ID stored in block: " endpoint-id))
+        )
+      )
+    )
+  )
+  result
 )
 
 (defun eskd-wire-body (attrs drawing-id)
@@ -132,6 +155,19 @@
   )
 )
 
+(defun eskd-wire-selected-existing-attrs (/ pair)
+  (setq pair (eskd-wire-selected-entity-and-attrs "\nSelect WireEndpoint block: "))
+  (if pair
+    (progn
+      (if (eskd-require-attrs (cadr pair) (eskd-wire-existing-required-tags))
+        (cadr pair)
+        nil
+      )
+    )
+    nil
+  )
+)
+
 (defun c:ESKD_WIRE_LINK_REF (/ pair-a pair-b entity-a entity-b attrs-a attrs-b ref-id)
   (setq pair-a (eskd-wire-selected-entity-and-attrs "\nSelect first WireEndpoint block: "))
   (if pair-a
@@ -165,7 +201,7 @@
 (defun c:ESKD_WIRE_GET (/ attrs)
   (if (eskd-require-auth)
     (progn
-      (setq attrs (eskd-wire-selected-attrs))
+      (setq attrs (eskd-wire-selected-existing-attrs))
       (if attrs
         (eskd-print-http-result "WireEndpoint GET" (eskd-http-json "GET" (eskd-wire-query-url attrs) nil))
       )
@@ -174,19 +210,26 @@
   (princ)
 )
 
-(defun c:ESKD_WIRE_CREATE (/ attrs drawing-id)
+(defun c:ESKD_WIRE_CREATE (/ pair entity attrs drawing-id result)
   (if (eskd-require-auth)
     (progn
-      (setq attrs (eskd-wire-selected-attrs))
-      (if attrs
+      (setq pair (eskd-wire-selected-entity-and-attrs "\nSelect WireEndpoint block: "))
+      (if pair
         (progn
-          (setq drawing-id (eskd-find-drawing-id attrs))
-          (if drawing-id
-            (eskd-print-http-result
-              "WireEndpoint CREATE"
-              (eskd-http-json "POST" (eskd-api-url "/api/wire-endpoints/") (eskd-wire-body attrs drawing-id))
+          (setq entity (car pair))
+          (setq attrs (cadr pair))
+          (if (eskd-require-attrs attrs (eskd-wire-crud-required-tags))
+            (progn
+              (setq drawing-id (eskd-find-drawing-id attrs))
+              (if drawing-id
+                (progn
+                  (setq result (eskd-http-json "POST" (eskd-api-url "/api/wire-endpoints/") (eskd-wire-body attrs drawing-id)))
+                  (eskd-print-http-result "WireEndpoint CREATE" result)
+                  (eskd-store-created-endpoint-id entity result)
+                )
+                (princ "\nParent drawing was not found. Create/sync drawing first.")
+              )
             )
-            (princ "\nParent drawing was not found. Create/sync drawing first.")
           )
         )
       )
@@ -198,7 +241,7 @@
 (defun c:ESKD_WIRE_UPDATE (/ attrs endpoint-id drawing-id)
   (if (eskd-require-auth)
     (progn
-      (setq attrs (eskd-wire-selected-attrs))
+      (setq attrs (eskd-wire-selected-existing-attrs))
       (if attrs
         (progn
           (setq endpoint-id (eskd-find-wire-endpoint-id attrs))
@@ -227,7 +270,7 @@
 (defun c:ESKD_WIRE_DELETE (/ attrs endpoint-id)
   (if (eskd-require-auth)
     (progn
-      (setq attrs (eskd-wire-selected-attrs))
+      (setq attrs (eskd-wire-selected-existing-attrs))
       (if attrs
         (progn
           (setq endpoint-id (eskd-find-wire-endpoint-id attrs))
@@ -245,32 +288,42 @@
   (princ)
 )
 
-(defun c:ESKD_WIRE_SYNC (/ attrs endpoint-id drawing-id)
+(defun c:ESKD_WIRE_SYNC (/ pair entity attrs endpoint-id drawing-id result)
   (if (eskd-require-auth)
     (progn
-      (setq attrs (eskd-wire-selected-attrs))
-      (if attrs
+      (setq pair (eskd-wire-selected-entity-and-attrs "\nSelect WireEndpoint block: "))
+      (if pair
         (progn
-          (setq drawing-id (eskd-find-drawing-id attrs))
-          (if drawing-id
+          (setq entity (car pair))
+          (setq attrs (cadr pair))
+          (if (eskd-require-attrs attrs (eskd-wire-crud-required-tags))
             (progn
-              (setq endpoint-id (eskd-find-wire-endpoint-id attrs))
-              (if endpoint-id
-                (eskd-print-http-result
-                  "WireEndpoint SYNC update"
-                  (eskd-http-json
-                    "PATCH"
-                    (eskd-api-url (strcat "/api/wire-endpoints/" endpoint-id "/"))
-                    (eskd-wire-body attrs drawing-id)
+              (setq drawing-id (eskd-find-drawing-id attrs))
+              (if drawing-id
+                (progn
+                  (setq endpoint-id nil)
+                  (if (eskd-non-empty (eskd-attr attrs "ENDPOINT_ID"))
+                    (setq endpoint-id (eskd-find-wire-endpoint-id attrs))
+                  )
+                  (if endpoint-id
+                    (eskd-print-http-result
+                      "WireEndpoint SYNC update"
+                      (eskd-http-json
+                        "PATCH"
+                        (eskd-api-url (strcat "/api/wire-endpoints/" endpoint-id "/"))
+                        (eskd-wire-body attrs drawing-id)
+                      )
+                    )
+                    (progn
+                      (setq result (eskd-http-json "POST" (eskd-api-url "/api/wire-endpoints/") (eskd-wire-body attrs drawing-id)))
+                      (eskd-print-http-result "WireEndpoint SYNC create" result)
+                      (eskd-store-created-endpoint-id entity result)
+                    )
                   )
                 )
-                (eskd-print-http-result
-                  "WireEndpoint SYNC create"
-                  (eskd-http-json "POST" (eskd-api-url "/api/wire-endpoints/") (eskd-wire-body attrs drawing-id))
-                )
+                (princ "\nParent drawing was not found. Create/sync drawing first.")
               )
             )
-            (princ "\nParent drawing was not found. Create/sync drawing first.")
           )
         )
       )

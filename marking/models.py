@@ -54,9 +54,9 @@ class WireEndpoint(models.Model):
 
     endpoint_id = models.CharField(max_length=32, primary_key=True, blank=True)
     drawing = models.ForeignKey(Drawing, on_delete=models.CASCADE, related_name="wire_endpoints")
-    ref_id = models.CharField(max_length=64)
-    mark = models.CharField(max_length=128)
-    position = models.CharField(max_length=64)
+    ref_id = models.CharField(max_length=64, blank=True)
+    mark = models.CharField(max_length=128, blank=True)
+    position = models.CharField(max_length=64, blank=True)
     wire_type = models.CharField(max_length=64, blank=True)
     wire_color = models.CharField(max_length=32, blank=True)
     sync_status = models.CharField(

@@ -65,5 +65,12 @@ class WireEndpointSerializer(serializers.ModelSerializer):
             "endpoint_id": {
                 "allow_blank": True,
                 "required": False,
-            }
+            },
+            "ref_id": {"allow_blank": True, "required": False},
+            "mark": {"allow_blank": True, "required": False},
+            "position": {"allow_blank": True, "required": False},
+            "sync_status": {"allow_blank": True, "required": False},
         }
+
+    def validate_sync_status(self, value):
+        return value or WireEndpoint.SyncStatus.NEW

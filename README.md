@@ -4,26 +4,25 @@
 
 ## Stack
 
-- Python 3.9
+- Python 3.9+
 - Django 4.2
 - Django REST Framework
 - DRF TokenAuthentication
 - SQLite для локальной разработки
+- openpyxl для Excel-отчета
 
 ## Models
 
 ### Project
 
-Проект верхнего уровня.
-
-- `project_id` - внешний идентификатор проекта, например `PRJ-2026-001`
+- `project_id` - идентификатор проекта, например `PRJ-2026-001`
 - `order_number` - номер заказа
 - `name` - название проекта
 - `description` - описание
 
-### Drawing
+Пара `project_id + order_number` уникальна.
 
-Чертеж внутри проекта.
+### Drawing
 
 - `project` - ссылка на проект
 - `dwg_id` - идентификатор чертежа или DWG-файла, например `SHU-01-001`
@@ -45,27 +44,29 @@
 - `wire_color` - цвет провода
 - `sync_status` - `NEW`, `SYNCED`, `DIRTY`, `ERROR`
 
+`endpoint_id` можно не передавать при создании: сервер сгенерирует его сам.
+
 ## Authorization
 
-Все CRUD-запросы требуют токен в HTTP-заголовке:
+Все CRUD-запросы требуют токен:
 
 ```text
 Authorization: Token <token>
 ```
 
-Получить токен можно по логину и паролю:
+Получить токен:
 
 ```powershell
 Invoke-RestMethod `
   -Method Post `
   -Uri http://127.0.0.1:8000/api/auth/token/ `
-  -Body @{ username = "admin"; password = "password" }
+  -Body @{ username = "admin"; password = "awesome1" }
 ```
 
-Создать пользователя:
+Создать админа:
 
 ```powershell
-.\.venv\Scripts\python.exe manage.py createsuperuser
+python manage.py createsuperuser
 ```
 
 ## API
@@ -76,8 +77,10 @@ Invoke-RestMethod `
 
 Фильтры:
 
-- `/api/drawings/?project_id=PRJ-2026-001`
-- `/api/wire-endpoints/?project_id=PRJ-2026-001`
+- `/api/projects/?project_id=PRJ-2026-001&order_number=ORD-001`
+- `/api/drawings/?project_id=PRJ-2026-001&order_number=ORD-001`
+- `/api/drawings/?project_id=PRJ-2026-001&order_number=ORD-001&dwg_id=SHU-01-001`
+- `/api/wire-endpoints/?project_id=PRJ-2026-001&order_number=ORD-001`
 - `/api/wire-endpoints/?dwg_id=SHU-01-001`
 - `/api/wire-endpoints/?ref_id=W-000101`
 - `/api/wire-endpoints/?sync_status=DIRTY`
@@ -90,7 +93,7 @@ Invoke-RestMethod `
 http://127.0.0.1:8000/reports/cambrics/
 ```
 
-Страница требует вход через Django. Можно зайти пользователем `admin` через:
+Страница требует вход через Django admin:
 
 ```text
 http://127.0.0.1:8000/admin/
@@ -105,37 +108,25 @@ ORDER_NUMBER
 
 После отправки скачивается `.xlsx` файл. Таблица сортируется по чертежу, маркировке и `REF_ID`.
 
-## Run
+## Run On Windows
 
-```powershell
-.\.venv\Scripts\python.exe manage.py runserver 127.0.0.1:8000
+```bat
+py -3.9 -m venv .venv
+.\.venv\Scripts\activate.bat
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+python manage.py migrate
+python manage.py runserver 0.0.0.0:8010
 ```
 
-После запуска:
+Если нужен конкретный IP:
 
-```text
-http://127.0.0.1:8000/api/
+```bat
+set ALLOWED_HOSTS=127.0.0.1,localhost,172.16.51.49
+python manage.py runserver 0.0.0.0:8010
 ```
 
-## AutoCAD LISP auth
-
-Первый LISP-скрипт лежит здесь:
-
-```text
-autocad/eskd_auth.lsp
-```
-
-CRUD-скрипт для проектов и чертежей:
-
-```text
-autocad/eskd_project_drawing_crud.lsp
-```
-
-CRUD-скрипт для маркировки:
-
-```text
-autocad/eskd_wire_endpoint_crud.lsp
-```
+## AutoCAD LISP
 
 Загрузка в AutoCAD:
 
@@ -147,31 +138,39 @@ APPLOAD -> autocad/eskd_wire_endpoint_crud.lsp
 
 Команды авторизации:
 
-- `ESKD_LOGIN` - спросит server URL, username, password и получит токен
-- `ESKD_STATUS` - покажет, есть ли токен в памяти AutoCAD
-- `ESKD_LOGOUT` - удалит токен из памяти
+- `ESKD_LOGIN`
+- `ESKD_STATUS`
+- `ESKD_LOGOUT`
 
-Токен хранится только в памяти текущей сессии AutoCAD. В DWG он не записывается.
-
-Команды CRUD проекта:
+Команды проекта:
 
 - `ESKD_PROJECT_GET`
 - `ESKD_PROJECT_CREATE`
 - `ESKD_PROJECT_UPDATE`
 - `ESKD_PROJECT_DELETE`
-- `ESKD_PROJECT_SYNC` - создать, если проекта нет; обновить, если есть
+- `ESKD_PROJECT_SYNC`
 
-Команды CRUD чертежа:
+Команды чертежа:
 
 - `ESKD_DRAWING_GET`
 - `ESKD_DRAWING_CREATE`
 - `ESKD_DRAWING_UPDATE`
 - `ESKD_DRAWING_DELETE`
-- `ESKD_DRAWING_SYNC` - создать, если чертежа нет; обновить, если есть
+- `ESKD_DRAWING_SYNC`
 
-Команды выбирают блок на чертеже и читают его атрибуты.
+Команды маркировки:
 
-Атрибуты блока проекта:
+- `ESKD_WIRE_GET`
+- `ESKD_WIRE_CREATE`
+- `ESKD_WIRE_UPDATE`
+- `ESKD_WIRE_DELETE`
+- `ESKD_WIRE_SYNC`
+- `ESKD_WIRE_LINK_REF`
+- `ESKD_WIRE_CLEAR_REF`
+
+## AutoCAD Blocks
+
+Блок проекта:
 
 ```text
 Block name: Block_Test_Project
@@ -181,7 +180,7 @@ PROJECT_NAME
 DESCRIPTION
 ```
 
-Атрибуты блока чертежа:
+Блок чертежа:
 
 ```text
 Block name: Block_Test_Drawing
@@ -192,16 +191,7 @@ DWG_NAME
 FILE_NAME
 ```
 
-Команды CRUD маркировки:
-
-- `ESKD_WIRE_GET`
-- `ESKD_WIRE_CREATE`
-- `ESKD_WIRE_UPDATE`
-- `ESKD_WIRE_DELETE`
-- `ESKD_WIRE_SYNC` - создать, если конца провода нет; обновить, если есть
-- `ESKD_WIRE_LINK_REF` - выбрать два блока маркировки и записать одинаковый `REF_ID` в оба
-
-Атрибуты блока маркировки:
+Блок маркировки:
 
 ```text
 Block name: Block_Test_Marking
@@ -217,6 +207,8 @@ WIRE_COLOR
 SYNC_STATUS
 ```
 
-Для `ESKD_WIRE_LINK_REF` можно выбирать блоки с пустым `REF_ID`. Команда возьмет существующий `REF_ID` из одного из блоков или создаст новый по handles выбранных блоков, затем запишет его в оба блока и поставит `SYNC_STATUS = DIRTY`.
+`ENDPOINT_ID` в новом блоке можно оставлять пустым. При первом `ESKD_WIRE_CREATE` или `ESKD_WIRE_SYNC` сервер создаст ID вида `END-XXXXXXXXX`, а LISP запишет его обратно в атрибут блока.
 
-`ENDPOINT_ID` в новом блоке маркировки можно оставлять пустым. При первом `ESKD_WIRE_CREATE` или `ESKD_WIRE_SYNC` сервер сам создаст ID вида `END-XXXXXXXXX`, а LISP запишет его обратно в атрибут блока.
+`ESKD_WIRE_LINK_REF` выбирает два блока маркировки и записывает одинаковый `REF_ID` в оба. Если `REF_ID` уже есть в одном из блоков, используется он. Если оба пустые, создается новый по handles выбранных блоков.
+
+`REF_ID` не создается сервером при создании маркировки. Его нужно назначать отдельной командой `ESKD_WIRE_LINK_REF`. Если блок был скопирован и унаследовал старый `REF_ID`, очисти его командой `ESKD_WIRE_CLEAR_REF`.

@@ -11,16 +11,16 @@
 ;;;
 ;;; Commands:
 ;;;   ESKD_WIRE_GET, ESKD_WIRE_CREATE, ESKD_WIRE_UPDATE, ESKD_WIRE_DELETE, ESKD_WIRE_SYNC
-;;;   ESKD_WIRE_LINK_REF
+;;;   ESKD_WIRE_LINK_REF, ESKD_WIRE_CLEAR_REF
 
 (vl-load-com)
 
 (defun eskd-wire-required-tags ()
-  '("ENDPOINT_ID" "PROJECT_ID" "ORDER_NUMBER" "DWG_ID" "MARK" "POSITION")
+  '("PROJECT_ID" "ORDER_NUMBER" "DWG_ID")
 )
 
 (defun eskd-wire-crud-required-tags ()
-  '("PROJECT_ID" "ORDER_NUMBER" "DWG_ID" "REF_ID" "MARK" "POSITION")
+  '("PROJECT_ID" "ORDER_NUMBER" "DWG_ID")
 )
 
 (defun eskd-wire-existing-required-tags ()
@@ -198,6 +198,19 @@
   (princ)
 )
 
+(defun c:ESKD_WIRE_CLEAR_REF (/ pair entity)
+  (setq pair (eskd-wire-selected-entity-and-attrs "\nSelect WireEndpoint block to clear REF_ID: "))
+  (if pair
+    (progn
+      (setq entity (car pair))
+      (eskd-set-block-attr entity "REF_ID" "")
+      (eskd-set-block-attr entity "SYNC_STATUS" "DIRTY")
+      (princ "\nREF_ID cleared. SYNC_STATUS set to DIRTY.")
+    )
+  )
+  (princ)
+)
+
 (defun c:ESKD_WIRE_GET (/ attrs)
   (if (eskd-require-auth)
     (progn
@@ -333,5 +346,5 @@
 )
 
 (princ "\nESKD WireEndpoint CRUD loaded.")
-(princ "\nCommands: ESKD_WIRE_LINK_REF, ESKD_WIRE_SYNC, plus GET/CREATE/UPDATE/DELETE variants.")
+(princ "\nCommands: ESKD_WIRE_LINK_REF, ESKD_WIRE_CLEAR_REF, ESKD_WIRE_SYNC, plus GET/CREATE/UPDATE/DELETE variants.")
 (princ)

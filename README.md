@@ -130,6 +130,30 @@ python manage.py migrate
 python manage.py runserver 0.0.0.0:8010
 ```
 
+## Auto Deploy On Windows
+
+Простой вариант для тестовой VM: скрипт сам проверяет `origin/master`, делает `git pull`, применяет миграции и перезапускает Django `runserver`.
+
+Один раз проверить и применить новый коммит:
+
+```bat
+scripts\windows_autodeploy.bat -Once
+```
+
+Запустить постоянную проверку каждые 30 секунд:
+
+```bat
+scripts\windows_autodeploy.bat
+```
+
+Другой интервал или порт:
+
+```bat
+scripts\windows_autodeploy.bat -IntervalSeconds 60 -Port 8010
+```
+
+Скрипт требует чистую рабочую папку Git. Если на VM есть локальные изменения, он остановится и не будет делать `pull`.
+
 Если нужен конкретный IP:
 
 ```bat

@@ -147,6 +147,7 @@ namespace Eskd.AutoCAD
             group.Controls.Add(Row(Label("MARK_1"), _mark1));
             group.Controls.Add(Row(Label("MARK_2"), _mark2));
             group.Controls.Add(Button("Добавить блок маркировки", OnInsertMarking));
+            group.Controls.Add(Button("Редактировать выбранную маркировку", OnEditMarking));
 
             group.Controls.Add(Row(Label("Тип"), _wireTypes));
             group.Controls.Add(Row(Label("Цвет"), _wireColors));
@@ -262,6 +263,29 @@ namespace Eskd.AutoCAD
                 endpoint.ProjectId = _selectedProject.ProjectId;
                 endpoint.CabinetId = _selectedCabinet.CabinetId;
                 _blocks.InsertMarkingBlock(_selectedProject, _selectedCabinet, endpoint, insertionPoint);
+            });
+        }
+
+        private void OnEditMarking(object sender, EventArgs eventArgs)
+        {
+            RunUi(() =>
+            {
+                RequireProject();
+                RequireCabinet();
+                var block = _blocks.PromptMarkingForEdit(_selectedProject, _selectedCabinet);
+                using (var form = new MarkingEditForm(block.Mark1, block.Mark2))
+                {
+                    if (form.ShowDialog(this) != DialogResult.OK)
+                    {
+                        return;
+                    }
+
+                    var patch = _blocks.UpdateMarkingMarks(block.ObjectId, form.Mark1, form.Mark2);
+                    PatchEndpoint(patch);
+                    _mark1.Text = patch.Mark1;
+                    _mark2.Text = patch.Mark2;
+                    MessageBox.Show("Маркировка обновлена.", "ESKD", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
             });
         }
 
@@ -525,6 +549,71 @@ namespace Eskd.AutoCAD
             var button = new Button { Text = text, AutoSize = true, Margin = new Padding(3) };
             button.Click += handler;
             return button;
+        }
+    }
+
+    internal sealed class MarkingEditForm : Form
+    {
+        private readonly TextBox _mark1;
+        private readonly TextBox _mark2;
+
+        public MarkingEditForm(string mark1, string mark2)
+        {
+            Text = "Редактировать маркировку";
+            FormBorderStyle = FormBorderStyle.FixedDialog;
+            StartPosition = FormStartPosition.CenterParent;
+            MinimizeBox = false;
+            MaximizeBox = false;
+            Width = 360;
+            Height = 170;
+
+            var root = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 2,
+                RowCount = 3,
+                Padding = new Padding(10)
+            };
+            root.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 70));
+            root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            Controls.Add(root);
+
+            _mark1 = new TextBox { Text = string.IsNullOrWhiteSpace(mark1) ? "-" : mark1, Dock = DockStyle.Fill };
+            _mark2 = new TextBox { Text = string.IsNullOrWhiteSpace(mark2) ? "-" : mark2, Dock = DockStyle.Fill };
+            root.Controls.Add(new Label { Text = "MARK_1", AutoSize = true, Padding = new Padding(0, 5, 0, 0) }, 0, 0);
+            root.Controls.Add(_mark1, 1, 0);
+            root.Controls.Add(new Label { Text = "MARK_2", AutoSize = true, Padding = new Padding(0, 5, 0, 0) }, 0, 1);
+            root.Controls.Add(_mark2, 1, 1);
+
+            var buttons = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                FlowDirection = FlowDirection.RightToLeft
+            };
+            var ok = new Button { Text = "Сохранить", DialogResult = DialogResult.OK, AutoSize = true };
+            var cancel = new Button { Text = "Отмена", DialogResult = DialogResult.Cancel, AutoSize = true };
+            buttons.Controls.Add(ok);
+            buttons.Controls.Add(cancel);
+            root.SetColumnSpan(buttons, 2);
+            root.Controls.Add(buttons, 0, 2);
+
+            AcceptButton = ok;
+            CancelButton = cancel;
+        }
+
+        public string Mark1
+        {
+            get { return Normalize(_mark1.Text); }
+        }
+
+        public string Mark2
+        {
+            get { return Normalize(_mark2.Text); }
+        }
+
+        private static string Normalize(string value)
+        {
+            return string.IsNullOrWhiteSpace(value) ? "-" : value.Trim();
         }
     }
 }

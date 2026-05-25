@@ -29,6 +29,14 @@ namespace Eskd.AutoCAD
         public string RefId { get; set; }
     }
 
+    internal sealed class EditableMarkingBlock
+    {
+        public ObjectId ObjectId { get; set; }
+        public string EndpointId { get; set; }
+        public string Mark1 { get; set; }
+        public string Mark2 { get; set; }
+    }
+
     internal sealed class OriginalMarkingBlock
     {
         public ObjectId ObjectId { get; set; }
@@ -312,6 +320,86 @@ namespace Eskd.AutoCAD
                 {
                     EndpointId = Attr(attributes, "ENDPOINT_ID"),
                     RefId = string.Empty,
+                    SyncStatus = "DIRTY"
+                };
+            }
+        }
+
+        public EditableMarkingBlock PromptMarkingForEdit(EskdProject project, EskdCabinet cabinet)
+        {
+            var document = Application.DocumentManager.MdiActiveDocument;
+            var database = document.Database;
+            var editor = document.Editor;
+            var objectId = PromptMarkingBlock(editor, "\nВыберите маркировку для редактирования: ");
+
+            using (document.LockDocument())
+            using (var transaction = database.TransactionManager.StartTransaction())
+            {
+                var reference = (BlockReference)transaction.GetObject(objectId, OpenMode.ForRead);
+                if (!IsBlock(reference, transaction, MarkingBlockName))
+                {
+                    throw new InvalidOperationException("Нужно выбрать блок " + MarkingBlockName + ".");
+                }
+
+                var attributes = ReadAttributes(reference, transaction);
+                if (!IsCurrentContext(attributes, project, cabinet))
+                {
+                    throw new InvalidOperationException("Маркировка должна относиться к выбранному проекту и шкафу.");
+                }
+
+                var endpointId = Attr(attributes, "ENDPOINT_ID");
+                if (string.IsNullOrWhiteSpace(endpointId))
+                {
+                    throw new InvalidOperationException("У выбранной маркировки пустой ENDPOINT_ID.");
+                }
+
+                transaction.Commit();
+                return new EditableMarkingBlock
+                {
+                    ObjectId = objectId,
+                    EndpointId = endpointId,
+                    Mark1 = EmptyToDash(Attr(attributes, "MARK_1")),
+                    Mark2 = EmptyToDash(Attr(attributes, "MARK_2"))
+                };
+            }
+        }
+
+        public EndpointPatch UpdateMarkingMarks(ObjectId objectId, string mark1, string mark2)
+        {
+            var document = Application.DocumentManager.MdiActiveDocument;
+            var database = document.Database;
+
+            using (document.LockDocument())
+            using (var transaction = database.TransactionManager.StartTransaction())
+            {
+                var reference = (BlockReference)transaction.GetObject(objectId, OpenMode.ForRead);
+                if (!IsBlock(reference, transaction, MarkingBlockName))
+                {
+                    throw new InvalidOperationException("Нужно выбрать блок " + MarkingBlockName + ".");
+                }
+
+                var attributes = ReadAttributes(reference, transaction);
+                var endpointId = Attr(attributes, "ENDPOINT_ID");
+                if (string.IsNullOrWhiteSpace(endpointId))
+                {
+                    throw new InvalidOperationException("У выбранной маркировки пустой ENDPOINT_ID.");
+                }
+
+                var normalizedMark1 = EmptyToDash(mark1);
+                var normalizedMark2 = EmptyToDash(mark2);
+                SetAttributes(reference, transaction, new Dictionary<string, string>
+                {
+                    {"MARK_1", normalizedMark1},
+                    {"MARK_2", normalizedMark2},
+                    {"SYNC_STATUS", "DIRTY"}
+                });
+
+                transaction.Commit();
+                return new EndpointPatch
+                {
+                    EndpointId = endpointId,
+                    Mark1 = normalizedMark1,
+                    Mark2 = normalizedMark2,
                     SyncStatus = "DIRTY"
                 };
             }

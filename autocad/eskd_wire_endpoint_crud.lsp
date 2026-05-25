@@ -19,6 +19,7 @@
 (if (not *eskd-wire-color-options*) (setq *eskd-wire-color-options* '("-")))
 (if (not *eskd-selected-wire-type-index*) (setq *eskd-selected-wire-type-index* 0))
 (if (not *eskd-selected-wire-color-index*) (setq *eskd-selected-wire-color-index* 0))
+(if (not *eskd-wire-check-lines*) (setq *eskd-wire-check-lines* '("Check has not run yet.")))
 
 (defun eskd-wire-required-tags ()
   '("PROJECT_ID" "CABINET_ID")
@@ -122,6 +123,19 @@
   )
 )
 
+(defun eskd-json-string-array (items / result first)
+  (setq result "[")
+  (setq first T)
+  (foreach item items
+    (if first
+      (setq first nil)
+      (setq result (strcat result ","))
+    )
+    (setq result (strcat result "\"" (eskd-json-escape item) "\""))
+  )
+  (strcat result "]")
+)
+
 (defun eskd-set-block-attr (entity tag value / next data)
   (setq tag (strcase tag))
   (setq next (entnext entity))
@@ -167,6 +181,17 @@
     (setq i (1+ i))
   )
   result
+)
+
+(defun eskd-split-lines (value / lines start pos)
+  (setq lines nil)
+  (setq start 1)
+  (while (setq pos (vl-string-search "\n" value (1- start)))
+    (setq lines (append lines (list (substr value start (- pos start -1)))))
+    (setq start (+ pos 2))
+  )
+  (setq lines (append lines (list (substr value start))))
+  (if lines lines '("-"))
 )
 
 (defun eskd-selected-wire-type ()
@@ -223,6 +248,91 @@
       (setq *eskd-selected-wire-type-index* 0)
       (setq *eskd-selected-wire-color-index* 0)
       (princ "\nWire type/color dictionaries loaded.")
+    )
+  )
+  (princ)
+)
+
+(defun eskd-current-drawing-marking-check-data (/ selection count i entity attrs endpoint-id ids empty-handles handle)
+  (setq ids nil)
+  (setq empty-handles nil)
+  (setq selection (ssget "X" '((0 . "INSERT"))))
+  (if selection
+    (progn
+      (setq count (sslength selection))
+      (setq i 0)
+      (while (< i count)
+        (setq entity (ssname selection i))
+        (if (= (eskd-block-name entity) (strcase *eskd-marking-block-name*))
+          (progn
+            (setq attrs (eskd-block-attrs entity))
+            (if (and
+                  (= (eskd-attr attrs "PROJECT_ID") *eskd-current-project-id*)
+                  (= (eskd-attr attrs "CABINET_ID") *eskd-current-cabinet-id*)
+                )
+              (progn
+                (setq endpoint-id (eskd-attr attrs "ENDPOINT_ID"))
+                (if (eskd-non-empty endpoint-id)
+                  (setq ids (append ids (list endpoint-id)))
+                  (progn
+                    (setq handle (cdr (assoc 5 (entget entity))))
+                    (if handle
+                      (setq empty-handles (append empty-handles (list handle)))
+                    )
+                  )
+                )
+              )
+            )
+          )
+        )
+        (setq i (1+ i))
+      )
+    )
+  )
+  (list ids empty-handles)
+)
+
+(defun eskd-wire-check-body (endpoint-ids empty-handles)
+  (strcat
+    "{"
+    "\"cabinet_id\":\"" (eskd-json-escape *eskd-current-cabinet-id*) "\","
+    "\"endpoint_ids\":" (eskd-json-string-array endpoint-ids) ","
+    "\"empty_endpoint_handles\":" (eskd-json-string-array empty-handles)
+    "}"
+  )
+)
+
+(defun c:ESKD_WIRE_CHECK (/ check-data endpoint-ids empty-handles result status response report-text)
+  (if (and (eskd-require-auth) (eskd-require-cabinet-context))
+    (progn
+      (setq check-data (eskd-current-drawing-marking-check-data))
+      (setq endpoint-ids (car check-data))
+      (setq empty-handles (cadr check-data))
+      (setq result
+        (eskd-http-json
+          "POST"
+          (eskd-api-url "/api/wire-endpoints/check-drawing/")
+          (eskd-wire-check-body endpoint-ids empty-handles)
+        )
+      )
+      (setq status (car result))
+      (setq response (cadr result))
+      (if (= status 200)
+        (progn
+          (setq report-text (eskd-json-token-value response "report_text"))
+          (setq *eskd-wire-check-lines* (eskd-split-lines report-text))
+          (princ "\nWireEndpoint database check completed.")
+          (foreach line *eskd-wire-check-lines*
+            (princ (strcat "\n" line))
+          )
+        )
+        (progn
+          (setq *eskd-wire-check-lines*
+            (list (strcat "Check failed: HTTP " (itoa status) ": " response))
+          )
+          (princ (strcat "\nCheck failed: HTTP " (itoa status) ": " response))
+        )
+      )
     )
   )
   (princ)

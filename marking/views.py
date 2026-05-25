@@ -1,4 +1,6 @@
-from rest_framework import viewsets
+from rest_framework import status, viewsets
+from rest_framework.decorators import action
+from rest_framework.response import Response
 
 from marking.models import Cabinet, Project, WireColor, WireEndpoint, WireType
 from marking.serializers import (
@@ -94,3 +96,105 @@ class WireEndpointViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(sync_status=sync_status)
 
         return queryset
+
+    @action(detail=False, methods=["post"], url_path="check-drawing")
+    def check_drawing(self, request):
+        cabinet_id = request.data.get("cabinet_id")
+        endpoint_ids = request.data.get("endpoint_ids", [])
+        empty_endpoint_handles = request.data.get("empty_endpoint_handles", [])
+
+        if isinstance(endpoint_ids, str):
+            endpoint_ids = [item.strip() for item in endpoint_ids.split(",")]
+        endpoint_ids = [str(item).strip() for item in endpoint_ids if str(item).strip()]
+        if isinstance(empty_endpoint_handles, str):
+            empty_endpoint_handles = [item.strip() for item in empty_endpoint_handles.split(",")]
+        empty_endpoint_handles = [
+            str(item).strip()
+            for item in empty_endpoint_handles
+            if str(item).strip()
+        ]
+
+        cabinet = Cabinet.objects.filter(code=cabinet_id).first()
+        if not cabinet:
+            return Response(
+                {"detail": "Шкаф не найден."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        endpoints = list(
+            WireEndpoint.objects.filter(cabinet=cabinet)
+            .select_related("cabinet", "wire_type", "wire_color")
+            .order_by("mark_1", "mark_2", "uid")
+        )
+        db_ids = {endpoint.uid for endpoint in endpoints}
+        drawing_ids = set(endpoint_ids)
+
+        duplicated_ids = sorted(
+            endpoint_id
+            for endpoint_id in drawing_ids
+            if endpoint_ids.count(endpoint_id) > 1
+        )
+        blocks_not_in_db = sorted(drawing_ids - db_ids)
+        db_not_in_drawing = [
+            endpoint
+            for endpoint in endpoints
+            if endpoint.uid not in drawing_ids
+        ]
+
+        report_lines = [
+            f"Шкаф: {cabinet.cabinet_code}",
+            f"Блоков в чертеже: {len(endpoint_ids)}",
+            f"Записей в БД: {len(endpoints)}",
+            f"Нет в БД: {len(blocks_not_in_db)}",
+            f"Нет в чертеже: {len(db_not_in_drawing)}",
+            f"Дубликатов ENDPOINT_ID: {len(duplicated_ids)}",
+            f"Блоков без ENDPOINT_ID: {len(empty_endpoint_handles)}",
+        ]
+
+        if (
+            not blocks_not_in_db
+            and not db_not_in_drawing
+            and not duplicated_ids
+            and not empty_endpoint_handles
+        ):
+            report_lines.append("Расхождений не найдено.")
+
+        if blocks_not_in_db:
+            report_lines.append("--- Блоки есть в чертеже, но нет в БД ---")
+            report_lines.extend(blocks_not_in_db)
+
+        if db_not_in_drawing:
+            report_lines.append("--- Записи есть в БД, но нет блока в чертеже ---")
+            for endpoint in db_not_in_drawing:
+                report_lines.append(
+                    f"{endpoint.uid}: {endpoint.mark_1} / {endpoint.mark_2}"
+                )
+
+        if duplicated_ids:
+            report_lines.append("--- Повторяющиеся ENDPOINT_ID в чертеже ---")
+            report_lines.extend(duplicated_ids)
+
+        if empty_endpoint_handles:
+            report_lines.append("--- Блоки без ENDPOINT_ID в чертеже ---")
+            report_lines.extend(f"HANDLE {handle}" for handle in empty_endpoint_handles)
+
+        return Response(
+            {
+                "cabinet_id": cabinet.code,
+                "drawing_count": len(endpoint_ids),
+                "db_count": len(endpoints),
+                "blocks_not_in_db": blocks_not_in_db,
+                "db_not_in_drawing": [
+                    {
+                        "endpoint_id": endpoint.uid,
+                        "mark_1": endpoint.mark_1,
+                        "mark_2": endpoint.mark_2,
+                    }
+                    for endpoint in db_not_in_drawing
+                ],
+                "duplicated_endpoint_ids": duplicated_ids,
+                "empty_endpoint_handles": empty_endpoint_handles,
+                "report_lines": report_lines,
+                "report_text": "\n".join(report_lines),
+            }
+        )

@@ -61,6 +61,10 @@ eskd_main : dialog {
       : button { key = "dict_load"; label = "Загрузить справочники"; width = 24; }
       : button { key = "wire_assign"; label = "Назначить выбранным"; width = 24; }
     }
+    : row {
+      : button { key = "wire_check"; label = "Сверить с БД"; width = 24; }
+    }
+    : list_box { key = "wire_check_result"; label = "Результат сверки"; width = 64; height = 8; }
   }
 
   : boxed_column {

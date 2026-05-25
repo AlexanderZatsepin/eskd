@@ -42,6 +42,10 @@
   (if (not *eskd-selected-wire-color-index*) (setq *eskd-selected-wire-color-index* 0))
 )
 
+(defun eskd-ui-ensure-check-lines ()
+  (if (not *eskd-wire-check-lines*) (setq *eskd-wire-check-lines* '("-")))
+)
+
 (defun eskd-ui-fill-popup (key items selected-index)
   (start_list key)
   (foreach item items
@@ -64,6 +68,8 @@
   (eskd-ui-ensure-wire-options)
   (eskd-ui-fill-popup "wire_type" *eskd-wire-type-options* *eskd-selected-wire-type-index*)
   (eskd-ui-fill-popup "wire_color" *eskd-wire-color-options* *eskd-selected-wire-color-index*)
+  (eskd-ui-ensure-check-lines)
+  (eskd-ui-fill-popup "wire_check_result" *eskd-wire-check-lines* 0)
 )
 
 (defun eskd-ui-save-context (/ project-code wire-type-index wire-color-index project-index cabinet-index)
@@ -102,6 +108,7 @@
     ((= action "wire_assign") (c:ESKD_WIRE_ASSIGN_TYPE_COLOR))
     ((= action "wire_link") (c:ESKD_WIRE_LINK_REF))
     ((= action "wire_clear") (c:ESKD_WIRE_CLEAR_REF))
+    ((= action "wire_check") (c:ESKD_WIRE_CHECK))
     ((= action "cambrics_report")
       (if *eskd-server-url*
         (eskd-ui-open-url (strcat (eskd-trim-right-slash *eskd-server-url*) "/reports/cambrics/"))
@@ -148,6 +155,7 @@
           (action_tile "wire_assign" "(eskd-ui-save-context)(setq action \"wire_assign\")(done_dialog 1)")
           (action_tile "wire_link" "(setq action \"wire_link\")(done_dialog 1)")
           (action_tile "wire_clear" "(setq action \"wire_clear\")(done_dialog 1)")
+          (action_tile "wire_check" "(eskd-ui-save-context)(setq action \"wire_check\")(done_dialog 1)")
           (action_tile "cambrics_report" "(setq action \"cambrics_report\")(done_dialog 1)")
           (action_tile "close" "(setq action \"close\")(done_dialog 0)")
 

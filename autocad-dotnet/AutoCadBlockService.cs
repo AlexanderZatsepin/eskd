@@ -23,6 +23,12 @@ namespace Eskd.AutoCAD
         public int Count { get; set; }
     }
 
+    internal sealed class MoveCabinetPatch
+    {
+        public string EndpointId { get; set; }
+        public string RefId { get; set; }
+    }
+
     internal sealed class OriginalMarkingBlock
     {
         public ObjectId ObjectId { get; set; }
@@ -460,6 +466,60 @@ namespace Eskd.AutoCAD
             }
         }
 
+        public List<MoveCabinetPatch> MoveSelectedToCabinet(EskdProject targetProject, EskdCabinet targetCabinet)
+        {
+            var result = new List<MoveCabinetPatch>();
+            var document = Application.DocumentManager.MdiActiveDocument;
+            var database = document.Database;
+            var editor = document.Editor;
+
+            var selection = editor.GetSelection(new SelectionFilter(new[] { new TypedValue(0, "INSERT") }));
+            if (selection.Status != PromptStatus.OK)
+            {
+                throw new OperationCanceledException("Выбор блоков отменен.");
+            }
+
+            using (document.LockDocument())
+            using (var transaction = database.TransactionManager.StartTransaction())
+            {
+                var markings = SelectedMarkings(selection.Value, transaction);
+                if (markings.Count == 0)
+                {
+                    throw new InvalidOperationException("В выборе нет блоков маркировки.");
+                }
+
+                var preservedRefs = PreservedRefSet(markings);
+                foreach (var marking in markings)
+                {
+                    var endpointId = Attr(marking.Attributes, "ENDPOINT_ID");
+                    if (string.IsNullOrWhiteSpace(endpointId))
+                    {
+                        continue;
+                    }
+
+                    var oldRefId = Attr(marking.Attributes, "REF_ID");
+                    var newRefId = preservedRefs.ContainsKey(oldRefId) ? oldRefId : string.Empty;
+                    var reference = (BlockReference)transaction.GetObject(marking.ObjectId, OpenMode.ForRead);
+                    SetAttributes(reference, transaction, new Dictionary<string, string>
+                    {
+                        {"PROJECT_ID", targetProject.ProjectId},
+                        {"CABINET_ID", targetCabinet.CabinetId},
+                        {"REF_ID", newRefId},
+                        {"SYNC_STATUS", "DIRTY"}
+                    });
+                    result.Add(new MoveCabinetPatch
+                    {
+                        EndpointId = endpointId,
+                        RefId = newRefId
+                    });
+                }
+
+                transaction.Commit();
+            }
+
+            return result;
+        }
+
         private static bool IsBlock(BlockReference reference, Transaction transaction, string blockName)
         {
             var record = (BlockTableRecord)transaction.GetObject(reference.DynamicBlockTableRecord, OpenMode.ForRead);
@@ -487,6 +547,20 @@ namespace Eskd.AutoCAD
             EskdProject project,
             EskdCabinet cabinet)
         {
+            var all = SelectedMarkings(selection, transaction);
+            var result = new List<OriginalMarkingBlock>();
+            foreach (var marking in all)
+            {
+                if (IsCurrentContext(marking.Attributes, project, cabinet))
+                {
+                    result.Add(marking);
+                }
+            }
+            return result;
+        }
+
+        private static List<OriginalMarkingBlock> SelectedMarkings(SelectionSet selection, Transaction transaction)
+        {
             var result = new List<OriginalMarkingBlock>();
             foreach (ObjectId selectedId in selection.GetObjectIds())
             {
@@ -496,16 +570,10 @@ namespace Eskd.AutoCAD
                     continue;
                 }
 
-                var attributes = ReadAttributes(reference, transaction);
-                if (!IsCurrentContext(attributes, project, cabinet))
-                {
-                    continue;
-                }
-
                 result.Add(new OriginalMarkingBlock
                 {
                     ObjectId = selectedId,
-                    Attributes = attributes
+                    Attributes = ReadAttributes(reference, transaction)
                 });
             }
             return result;
@@ -531,6 +599,31 @@ namespace Eskd.AutoCAD
                 if (pair.Value > 1)
                 {
                     result[pair.Key] = Guid.NewGuid().ToString();
+                }
+            }
+            return result;
+        }
+
+        private static Dictionary<string, bool> PreservedRefSet(List<OriginalMarkingBlock> originals)
+        {
+            var counts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            foreach (var original in originals)
+            {
+                var refId = Attr(original.Attributes, "REF_ID");
+                if (string.IsNullOrWhiteSpace(refId))
+                {
+                    continue;
+                }
+
+                counts[refId] = counts.ContainsKey(refId) ? counts[refId] + 1 : 1;
+            }
+
+            var result = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+            foreach (var pair in counts)
+            {
+                if (pair.Value > 1)
+                {
+                    result[pair.Key] = true;
                 }
             }
             return result;

@@ -164,6 +164,7 @@ namespace Eskd.AutoCAD
             var copyButtons = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true };
             copyButtons.Controls.Add(Button("Копировать маркировки", OnCopyMarkings));
             copyButtons.Controls.Add(Button("Переоформить ID выбранным", OnReissueSelectedIds));
+            copyButtons.Controls.Add(Button("Перенести в выбранный шкаф", OnMoveSelectedToCabinet));
             group.Controls.Add(copyButtons);
             return group;
         }
@@ -338,6 +339,21 @@ namespace Eskd.AutoCAD
                     _selectedCabinet.Id,
                     _api.CreateEndpoint);
                 MessageBox.Show("Переоформлено маркировок: " + result.Count, "ESKD", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            });
+        }
+
+        private void OnMoveSelectedToCabinet(object sender, EventArgs eventArgs)
+        {
+            RunUi(() =>
+            {
+                RequireProject();
+                RequireCabinet();
+                var patches = _blocks.MoveSelectedToCabinet(_selectedProject, _selectedCabinet);
+                foreach (var patch in patches)
+                {
+                    _api.MoveEndpointToCabinet(patch.EndpointId, _selectedCabinet.Id, patch.RefId);
+                }
+                MessageBox.Show("Перенесено маркировок: " + patches.Count, "ESKD", MessageBoxButtons.OK, MessageBoxIcon.Information);
             });
         }
 

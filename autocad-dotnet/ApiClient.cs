@@ -238,6 +238,26 @@ namespace Eskd.AutoCAD
                 true);
         }
 
+        public void MoveEndpointToCabinet(string endpointId, int cabinetDbId, string refId)
+        {
+            if (string.IsNullOrWhiteSpace(endpointId))
+            {
+                return;
+            }
+
+            Request(
+                "PATCH",
+                "/api/wire-endpoints/" + Uri.EscapeDataString(endpointId) + "/",
+                _json.Serialize(new Dictionary<string, object>
+                {
+                    {"cabinet", cabinetDbId},
+                    {"ref_id", refId ?? string.Empty},
+                    {"sync_status", "DIRTY"}
+                }),
+                "application/json",
+                true);
+        }
+
         public DrawingCheckResult CheckDrawing(string cabinetId, List<string> endpointIds, List<string> emptyHandles)
         {
             var payload = _json.Serialize(new Dictionary<string, object>

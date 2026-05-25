@@ -1,0 +1,379 @@
+using System;
+using System.Drawing;
+using System.Windows.Forms;
+using AcadApp = Autodesk.AutoCAD.ApplicationServices.Application;
+
+namespace Eskd.AutoCAD
+{
+    internal sealed class EskdPaletteControl : UserControl
+    {
+        private readonly ApiClient _api = new ApiClient();
+        private readonly AutoCadBlockService _blocks = new AutoCadBlockService();
+
+        private TextBox _serverUrl;
+        private TextBox _username;
+        private TextBox _password;
+        private Panel _authIndicator;
+        private Label _authStatus;
+
+        private ComboBox _projects;
+        private TextBox _projectCode;
+        private TextBox _projectName;
+        private TextBox _projectId;
+
+        private ComboBox _cabinets;
+        private TextBox _cabinetCode;
+        private TextBox _cabinetName;
+        private TextBox _cabinetDescription;
+        private TextBox _cabinetId;
+
+        private TextBox _mark1;
+        private TextBox _mark2;
+        private ListBox _checkResult;
+
+        private EskdProject _selectedProject;
+        private EskdCabinet _selectedCabinet;
+
+        public EskdPaletteControl()
+        {
+            BuildLayout();
+            UpdateAuthStatus();
+        }
+
+        private void BuildLayout()
+        {
+            Dock = DockStyle.Fill;
+            AutoScroll = true;
+
+            var root = new TableLayoutPanel
+            {
+                Dock = DockStyle.Top,
+                AutoSize = true,
+                ColumnCount = 1,
+                Padding = new Padding(8)
+            };
+            Controls.Add(root);
+
+            root.Controls.Add(AuthGroup());
+            root.Controls.Add(ProjectGroup());
+            root.Controls.Add(CabinetGroup());
+            root.Controls.Add(MarkingGroup());
+            root.Controls.Add(CheckGroup());
+        }
+
+        private Control AuthGroup()
+        {
+            var group = Group("Авторизация");
+            _serverUrl = TextBox(_api.ServerUrl);
+            _username = TextBox("admin");
+            _password = TextBox("");
+            _password.UseSystemPasswordChar = true;
+
+            group.Controls.Add(Row(Label("Сервер"), _serverUrl));
+            group.Controls.Add(Row(Label("Логин"), _username));
+            group.Controls.Add(Row(Label("Пароль"), _password));
+
+            var buttons = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true };
+            buttons.Controls.Add(Button("Войти", OnLogin));
+            buttons.Controls.Add(Button("Выйти", (s, e) => { _api.Logout(); UpdateAuthStatus(); }));
+            group.Controls.Add(buttons);
+
+            var status = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, Padding = new Padding(0, 4, 0, 0) };
+            _authIndicator = new Panel { Width = 16, Height = 16, BackColor = Color.Firebrick, Margin = new Padding(3, 5, 6, 3) };
+            _authStatus = new Label { AutoSize = true, Text = "Вход не выполнен", Padding = new Padding(0, 4, 0, 0) };
+            status.Controls.Add(_authIndicator);
+            status.Controls.Add(_authStatus);
+            group.Controls.Add(status);
+
+            return group;
+        }
+
+        private Control ProjectGroup()
+        {
+            var group = Group("Проект");
+            _projectId = ReadOnlyTextBox();
+            _projects = Combo();
+            _projectCode = TextBox("");
+            _projectName = TextBox("");
+
+            group.Controls.Add(Row(Label("UUID"), _projectId));
+            group.Controls.Add(Row(Label("Список"), _projects));
+            group.Controls.Add(Row(Label("Шифр"), _projectCode));
+            group.Controls.Add(Row(Label("Название"), _projectName));
+
+            var buttons = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true };
+            buttons.Controls.Add(Button("Загрузить", OnLoadProjects));
+            buttons.Controls.Add(Button("Выбрать", OnSelectProject));
+            buttons.Controls.Add(Button("Сохранить", OnSaveProject));
+            group.Controls.Add(buttons);
+
+            return group;
+        }
+
+        private Control CabinetGroup()
+        {
+            var group = Group("Шкаф");
+            _cabinetId = ReadOnlyTextBox();
+            _cabinets = Combo();
+            _cabinetCode = TextBox("");
+            _cabinetName = TextBox("");
+            _cabinetDescription = TextBox("");
+
+            group.Controls.Add(Row(Label("UUID"), _cabinetId));
+            group.Controls.Add(Row(Label("Список"), _cabinets));
+            group.Controls.Add(Row(Label("Код"), _cabinetCode));
+            group.Controls.Add(Row(Label("Название"), _cabinetName));
+            group.Controls.Add(Row(Label("Описание"), _cabinetDescription));
+
+            var buttons = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true };
+            buttons.Controls.Add(Button("Загрузить", OnLoadCabinets));
+            buttons.Controls.Add(Button("Выбрать", OnSelectCabinet));
+            buttons.Controls.Add(Button("Сохранить", OnSaveCabinet));
+            group.Controls.Add(buttons);
+
+            return group;
+        }
+
+        private Control MarkingGroup()
+        {
+            var group = Group("Маркировка");
+            _mark1 = TextBox("-");
+            _mark2 = TextBox("-");
+            group.Controls.Add(Row(Label("MARK_1"), _mark1));
+            group.Controls.Add(Row(Label("MARK_2"), _mark2));
+            group.Controls.Add(Button("Добавить блок маркировки", OnInsertMarking));
+            return group;
+        }
+
+        private Control CheckGroup()
+        {
+            var group = Group("Сверка");
+            group.Controls.Add(Button("Сверить чертеж с БД", OnCheckDrawing));
+            _checkResult = new ListBox { Dock = DockStyle.Top, Height = 180 };
+            group.Controls.Add(_checkResult);
+            return group;
+        }
+
+        private void OnLogin(object sender, EventArgs eventArgs)
+        {
+            RunUi(() =>
+            {
+                _api.Login(_serverUrl.Text, _username.Text, _password.Text);
+                UpdateAuthStatus();
+            });
+        }
+
+        private void OnLoadProjects(object sender, EventArgs eventArgs)
+        {
+            RunUi(() =>
+            {
+                _projects.DataSource = _api.GetProjects();
+            });
+        }
+
+        private void OnSelectProject(object sender, EventArgs eventArgs)
+        {
+            var project = _projects.SelectedItem as EskdProject;
+            if (project == null)
+            {
+                return;
+            }
+            SetProject(project);
+            _cabinets.DataSource = null;
+        }
+
+        private void OnSaveProject(object sender, EventArgs eventArgs)
+        {
+            RunUi(() =>
+            {
+                var project = _api.SaveProject(_projectCode.Text.Trim(), _projectName.Text.Trim());
+                SetProject(project);
+                OnLoadProjects(sender, eventArgs);
+            });
+        }
+
+        private void OnLoadCabinets(object sender, EventArgs eventArgs)
+        {
+            RunUi(() =>
+            {
+                RequireProject();
+                _cabinets.DataSource = _api.GetCabinets(_selectedProject.ProjectId);
+            });
+        }
+
+        private void OnSelectCabinet(object sender, EventArgs eventArgs)
+        {
+            var cabinet = _cabinets.SelectedItem as EskdCabinet;
+            if (cabinet == null)
+            {
+                return;
+            }
+            SetCabinet(cabinet);
+        }
+
+        private void OnSaveCabinet(object sender, EventArgs eventArgs)
+        {
+            RunUi(() =>
+            {
+                RequireProject();
+                var cabinet = _api.SaveCabinet(
+                    _selectedProject.Id,
+                    _selectedProject.ProjectId,
+                    _cabinetCode.Text.Trim(),
+                    _cabinetName.Text.Trim(),
+                    _cabinetDescription.Text.Trim());
+                SetCabinet(cabinet);
+                OnLoadCabinets(sender, eventArgs);
+            });
+        }
+
+        private void OnInsertMarking(object sender, EventArgs eventArgs)
+        {
+            RunUi(() =>
+            {
+                RequireProject();
+                RequireCabinet();
+                var insertionPoint = _blocks.PromptMarkingInsertionPoint();
+                var endpoint = _api.CreateEndpoint(_selectedCabinet.Id, _mark1.Text.Trim(), _mark2.Text.Trim());
+                endpoint.ProjectId = _selectedProject.ProjectId;
+                endpoint.CabinetId = _selectedCabinet.CabinetId;
+                _blocks.InsertMarkingBlock(_selectedProject, _selectedCabinet, endpoint, insertionPoint);
+            });
+        }
+
+        private void OnCheckDrawing(object sender, EventArgs eventArgs)
+        {
+            RunUi(() =>
+            {
+                RequireProject();
+                RequireCabinet();
+                var snapshot = _blocks.CollectMarkingEndpointIds(_selectedProject, _selectedCabinet);
+                var result = _api.CheckDrawing(_selectedCabinet.CabinetId, snapshot.EndpointIds, snapshot.EmptyEndpointHandles);
+                _checkResult.Items.Clear();
+                foreach (var line in result.Lines)
+                {
+                    _checkResult.Items.Add(line);
+                }
+            });
+        }
+
+        private void SetProject(EskdProject project)
+        {
+            _selectedProject = project;
+            _projectId.Text = project.ProjectId;
+            _projectCode.Text = project.ProjectCode;
+            _projectName.Text = project.Name;
+            _selectedCabinet = null;
+            _cabinetId.Text = "";
+            _cabinetCode.Text = "";
+            _cabinetName.Text = "";
+            _cabinetDescription.Text = "";
+        }
+
+        private void SetCabinet(EskdCabinet cabinet)
+        {
+            _selectedCabinet = cabinet;
+            _cabinetId.Text = cabinet.CabinetId;
+            _cabinetCode.Text = cabinet.CabinetCode;
+            _cabinetName.Text = cabinet.Name;
+            _cabinetDescription.Text = cabinet.Description;
+        }
+
+        private void UpdateAuthStatus()
+        {
+            _authIndicator.BackColor = _api.IsAuthenticated ? Color.ForestGreen : Color.Firebrick;
+            _authStatus.Text = _api.IsAuthenticated ? "Вход выполнен: " + _api.Username : "Вход не выполнен";
+        }
+
+        private void RequireProject()
+        {
+            if (_selectedProject == null)
+            {
+                throw new InvalidOperationException("Сначала выберите или сохраните проект.");
+            }
+        }
+
+        private void RequireCabinet()
+        {
+            if (_selectedCabinet == null)
+            {
+                throw new InvalidOperationException("Сначала выберите или сохраните шкаф.");
+            }
+        }
+
+        private void RunUi(Action action)
+        {
+            try
+            {
+                action();
+            }
+            catch (OperationCanceledException ex)
+            {
+                MessageBox.Show(ex.Message, "ESKD", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message, "ESKD", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                var document = AcadApp.DocumentManager.MdiActiveDocument;
+                if (document != null)
+                {
+                    document.Editor.WriteMessage("\nESKD: " + ex.Message);
+                }
+            }
+        }
+
+        private static GroupBox Group(string title)
+        {
+            return new GroupBox
+            {
+                Text = title,
+                Dock = DockStyle.Top,
+                AutoSize = true,
+                Padding = new Padding(8),
+                Margin = new Padding(0, 0, 0, 8)
+            };
+        }
+
+        private static Control Row(Control label, Control editor)
+        {
+            var row = new TableLayoutPanel
+            {
+                Dock = DockStyle.Top,
+                AutoSize = true,
+                ColumnCount = 2
+            };
+            row.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 90));
+            row.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            row.Controls.Add(label, 0, 0);
+            row.Controls.Add(editor, 1, 0);
+            return row;
+        }
+
+        private static Label Label(string text)
+        {
+            return new Label { Text = text, Dock = DockStyle.Fill, AutoSize = true, Padding = new Padding(0, 5, 4, 0) };
+        }
+
+        private static TextBox TextBox(string text)
+        {
+            return new TextBox { Text = text, Dock = DockStyle.Fill };
+        }
+
+        private static TextBox ReadOnlyTextBox()
+        {
+            return new TextBox { ReadOnly = true, Dock = DockStyle.Fill };
+        }
+
+        private static ComboBox Combo()
+        {
+            return new ComboBox { Dock = DockStyle.Fill, DropDownStyle = ComboBoxStyle.DropDownList };
+        }
+
+        private static Button Button(string text, EventHandler handler)
+        {
+            var button = new Button { Text = text, AutoSize = true, Margin = new Padding(3) };
+            button.Click += handler;
+            return button;
+        }
+    }
+}

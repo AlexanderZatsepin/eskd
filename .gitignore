@@ -7,3 +7,6 @@ db.sqlite3
 .vscode/
 .runserver.pid
 logs/
+autocad-dotnet/bin/
+autocad-dotnet/obj/
+autocad-dotnet/Directory.Build.props

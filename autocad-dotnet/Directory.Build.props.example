@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project>
+  <PropertyGroup>
+    <AutoCADApiPath>C:\Program Files\Autodesk\AutoCAD 2018</AutoCADApiPath>
+  </PropertyGroup>
+</Project>

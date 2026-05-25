@@ -159,7 +159,7 @@ WIRE_COLOR
 SYNC_STATUS
 ```
 
-В шаблоне `autocad/eskd_blocks_template.dxf` служебные атрибуты `ENDPOINT_ID`, `PROJECT_ID`, `CABINET_ID`, `REF_ID`, `SYNC_STATUS` скрыты. На чертеже видны четыре рабочих атрибута: `MARK_1`, `MARK_2`, `WIRE_TYPE`, `WIRE_COLOR`.
+В шаблоне `autocad/eskd_blocks_template.dxf` блок содержит только атрибуты, без линий и другой геометрии. Служебные атрибуты `ENDPOINT_ID`, `PROJECT_ID`, `CABINET_ID`, `REF_ID`, `SYNC_STATUS` скрыты. На чертеже видны четыре рабочих атрибута: `MARK_1`, `MARK_2`, `WIRE_TYPE`, `WIRE_COLOR`.
 
 `ENDPOINT_ID` создается сервером и записывается обратно в блок после создания маркировки через панель.
 

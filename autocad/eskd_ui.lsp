@@ -25,10 +25,20 @@
   (if value value "")
 )
 
+(defun eskd-ui-project-name-value (/ value)
+  (setq value (eskd-ui-value *eskd-current-project-name*))
+  (if (vl-string-search "?" value)
+    (progn
+      (setq *eskd-current-project-name* "")
+      ""
+    )
+    value
+  )
+)
 (defun eskd-ui-fill-context ()
   (set_tile "project_id" (eskd-ui-value *eskd-current-project-id*))
   (set_tile "project_code" (eskd-ui-value *eskd-current-project-code*))
-  (set_tile "project_name" (eskd-ui-value *eskd-current-project-name*))
+  (set_tile "project_name" (eskd-ui-project-name-value))
   (set_tile "cabinet_id" (eskd-ui-value *eskd-current-cabinet-id*))
   (set_tile "cabinet_name" (eskd-ui-value *eskd-current-cabinet-name*))
   (set_tile "cabinet_description" (eskd-ui-value *eskd-current-cabinet-description*))

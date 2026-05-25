@@ -357,6 +357,10 @@
   (setq *eskd-current-project-code* project-code)
 )
 
+(defun eskd-clear-current-project-name ()
+  (setq *eskd-current-project-name* "")
+)
+
 (defun eskd-context-has-cabinet ()
   (and
     (eskd-context-has-project)
@@ -517,6 +521,7 @@
           (if id
             (progn
               (eskd-store-current-project-id result)
+              (eskd-clear-current-project-name)
               (princ "\nПроект найден и выбран.")
             )
             (princ "\nПроект с таким шифром не найден.")
@@ -621,6 +626,7 @@
                 (eskd-store-current-project-id
                   (eskd-print-http-result "Project SYNC found" (eskd-http-json "GET" (eskd-project-code-query-url attrs) nil))
                 )
+                (eskd-clear-current-project-name)
                 (princ "\nПроект уже есть на сервере, выбран существующий.")
               )
             )

@@ -15,6 +15,11 @@
 
 (vl-load-com)
 
+(if (not *eskd-wire-type-options*) (setq *eskd-wire-type-options* '("-")))
+(if (not *eskd-wire-color-options*) (setq *eskd-wire-color-options* '("-")))
+(if (not *eskd-selected-wire-type-index*) (setq *eskd-selected-wire-type-index* 0))
+(if (not *eskd-selected-wire-color-index*) (setq *eskd-selected-wire-color-index* 0))
+
 (defun eskd-wire-required-tags ()
   '("PROJECT_ID" "CABINET_ID")
 )
@@ -140,6 +145,77 @@
   (and value (/= value ""))
 )
 
+(defun eskd-list-at (items index / i result)
+  (setq i 0)
+  (setq result nil)
+  (foreach item items
+    (if (= i index)
+      (setq result item)
+    )
+    (setq i (1+ i))
+  )
+  result
+)
+
+(defun eskd-selected-wire-type ()
+  (or (eskd-list-at *eskd-wire-type-options* *eskd-selected-wire-type-index*) "-")
+)
+
+(defun eskd-selected-wire-color ()
+  (or (eskd-list-at *eskd-wire-color-options* *eskd-selected-wire-color-index*) "-")
+)
+
+(defun eskd-json-name-values (json / values pos pattern start end value)
+  (setq values nil)
+  (setq pos 0)
+  (setq pattern "\"name\":\"")
+  (while (setq start (vl-string-search pattern json pos))
+    (setq start (+ start (strlen pattern)))
+    (setq end start)
+    (while (and (< end (strlen json)) (/= (substr json (1+ end) 1) "\""))
+      (setq end (1+ end))
+    )
+    (setq value (substr json (1+ start) (- end start)))
+    (if (eskd-non-empty value)
+      (setq values (append values (list value)))
+    )
+    (setq pos (1+ end))
+  )
+  values
+)
+
+(defun eskd-load-dictionary-names (path / result status response names)
+  (setq result (eskd-http-json "GET" (eskd-api-url path) nil))
+  (setq status (car result))
+  (setq response (cadr result))
+  (if (= status 200)
+    (progn
+      (setq names (eskd-json-name-values response))
+      (if names
+        names
+        '("-")
+      )
+    )
+    (progn
+      (princ (strcat "\nDictionary load failed: HTTP " (itoa status) ": " response))
+      '("-")
+    )
+  )
+)
+
+(defun c:ESKD_WIRE_DICTIONARIES_LOAD ()
+  (if (eskd-require-auth)
+    (progn
+      (setq *eskd-wire-type-options* (eskd-load-dictionary-names "/api/wire-types/"))
+      (setq *eskd-wire-color-options* (eskd-load-dictionary-names "/api/wire-colors/"))
+      (setq *eskd-selected-wire-type-index* 0)
+      (setq *eskd-selected-wire-color-index* 0)
+      (princ "\nWire type/color dictionaries loaded.")
+    )
+  )
+  (princ)
+)
+
 (defun eskd-generate-ref-id (entity-a entity-b / handle-a handle-b)
   (eskd-new-uuid)
 )
@@ -255,15 +331,13 @@
   (princ)
 )
 
-(defun c:ESKD_WIRE_INSERT (/ project-id cabinet-id mark-1 mark-2 wire-type wire-color point entity)
+(defun c:ESKD_WIRE_INSERT (/ project-id cabinet-id mark-1 mark-2 point entity)
   (if (eskd-require-cabinet-context)
     (progn
       (setq project-id *eskd-current-project-id*)
       (setq cabinet-id *eskd-current-cabinet-id*)
       (setq mark-1 (eskd-getstring-default "MARK_1" "-"))
       (setq mark-2 (eskd-getstring-default "MARK_2" "-"))
-      (setq wire-type (eskd-getstring-default "WIRE_TYPE" "-"))
-      (setq wire-color (eskd-getstring-default "WIRE_COLOR" "-"))
       (setq point (getpoint "\nInsertion point for marking block: "))
       (if point
         (progn
@@ -279,8 +353,8 @@
                   (cons "REF_ID" "")
                   (cons "MARK_1" mark-1)
                   (cons "MARK_2" mark-2)
-                  (cons "WIRE_TYPE" wire-type)
-                  (cons "WIRE_COLOR" wire-color)
+                  (cons "WIRE_TYPE" "-")
+                  (cons "WIRE_COLOR" "-")
                   (cons "SYNC_STATUS" "NEW")
                 )
               )
@@ -288,6 +362,42 @@
             )
             (princ "\nBlock_Test_Marking was not inserted. Make sure the block definition exists in this drawing.")
           )
+        )
+      )
+    )
+  )
+  (princ)
+)
+
+(defun c:ESKD_WIRE_ASSIGN_TYPE_COLOR (/ wire-type wire-color selection count i entity assigned)
+  (setq wire-type (eskd-selected-wire-type))
+  (setq wire-color (eskd-selected-wire-color))
+  (setq selection (ssget '((0 . "INSERT"))))
+  (if selection
+    (progn
+      (setq count (sslength selection))
+      (setq i 0)
+      (setq assigned 0)
+      (while (< i count)
+        (setq entity (ssname selection i))
+        (if (= (eskd-block-name entity) (strcase *eskd-marking-block-name*))
+          (progn
+            (eskd-set-block-attr entity "WIRE_TYPE" wire-type)
+            (eskd-set-block-attr entity "WIRE_COLOR" wire-color)
+            (eskd-set-block-attr entity "SYNC_STATUS" "DIRTY")
+            (setq assigned (1+ assigned))
+          )
+        )
+        (setq i (1+ i))
+      )
+      (princ
+        (strcat
+          "\nWIRE_TYPE/WIRE_COLOR assigned to "
+          (itoa assigned)
+          " marking block(s): "
+          wire-type
+          " "
+          wire-color
         )
       )
     )

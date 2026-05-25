@@ -42,6 +42,14 @@ eskd_main : dialog {
       : button { key = "wire_link"; label = "Связать"; width = 18; }
       : button { key = "wire_clear"; label = "Очистить связь"; width = 18; }
     }
+    : row {
+      : popup_list { key = "wire_type"; label = "Тип"; edit_width = 24; }
+      : popup_list { key = "wire_color"; label = "Цвет"; edit_width = 18; }
+    }
+    : row {
+      : button { key = "dict_load"; label = "Загрузить справочники"; width = 24; }
+      : button { key = "wire_assign"; label = "Назначить выбранным"; width = 24; }
+    }
   }
 
   : boxed_column {

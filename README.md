@@ -117,21 +117,18 @@ scripts\windows_autodeploy.bat -IntervalSeconds 300
 
 Скрипт делает `git pull`, применяет миграции и перезапускает Django `runserver`.
 
-## AutoCAD LISP
+## AutoCAD .NET
 
 Загрузка в AutoCAD:
 
 ```text
-APPLOAD -> autocad/eskd_auth.lsp
-APPLOAD -> autocad/eskd_project_drawing_crud.lsp
-APPLOAD -> autocad/eskd_wire_endpoint_crud.lsp
-APPLOAD -> autocad/eskd_ui.lsp
+NETLOAD -> autocad-dotnet/bin/Release/Eskd.AutoCAD.dll
 ```
 
-Главное окно:
+Панель:
 
 ```text
-ESKD
+ESKD_PANEL
 ```
 
 Проект создается или выбирается через панель. Пользователь вводит `Шифр проекта` и название. Если проект с таким шифром уже есть на сервере, команда `Сохранить проект` не создает дубль, а выбирает существующий проект и возвращает его `PROJECT_ID`.
@@ -162,11 +159,11 @@ WIRE_COLOR
 SYNC_STATUS
 ```
 
-`ENDPOINT_ID` создается сервером и записывается обратно в блок после первого успешного `ESKD_WIRE_CREATE` или `ESKD_WIRE_SYNC`.
+`ENDPOINT_ID` создается сервером и записывается обратно в блок после создания маркировки через панель.
 
-`REF_ID` создается командой `ESKD_WIRE_LINK_REF`, когда выбираются два блока маркировки. Сервер сам `REF_ID` не создает.
+`REF_ID` создается кнопкой `Связать`, когда выбираются два блока маркировки. Сервер сам `REF_ID` не создает.
 
-`ESKD_WIRE_INSERT` / кнопка `Добавить блок маркировки` вставляет новый `Block_Test_Marking` и спрашивает:
+Кнопка `Добавить блок маркировки` вставляет новый `Block_Test_Marking` и использует значения:
 
 ```text
 MARK_1

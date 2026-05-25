@@ -1,8 +1,6 @@
 # ESKD AutoCAD .NET Palette
 
-Второй вариант интерфейса для AutoCAD: dockable-панель на C# через AutoCAD .NET API `PaletteSet`.
-
-Текущий LISP/DCL вариант остается в папке `autocad/`. Этот проект можно развивать параллельно и постепенно переносить функции сюда.
+Основной интерфейс для AutoCAD: dockable-панель на C# через AutoCAD .NET API `PaletteSet`.
 
 ## Что уже есть
 

@@ -8,6 +8,10 @@ eskd_main : dialog {
       : button { key = "status"; label = "Статус"; width = 18; }
       : button { key = "logout"; label = "Выйти"; width = 18; }
     }
+    : row {
+      : image { key = "auth_indicator"; width = 2; height = 1; fixed_width = true; fixed_height = true; }
+      : text { key = "auth_status"; label = "Вход не выполнен"; width = 44; }
+    }
   }
 
   : boxed_column {

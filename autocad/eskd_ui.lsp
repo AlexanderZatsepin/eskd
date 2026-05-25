@@ -47,7 +47,7 @@
   (setq dcl-path (eskd-ui-dcl-path))
   (if (not dcl-path)
     (progn
-      (princ "\nCannot find eskd_ui.dcl. Add the autocad folder to Support File Search Path or load from that folder.")
+      (princ "\nНе найден eskd_ui.dcl. Добавьте папку autocad в Support File Search Path или загружайте LISP из этой папки.")
       (princ)
     )
     (progn
@@ -55,7 +55,7 @@
       (if (not (new_dialog "eskd_main" dcl-id))
         (progn
           (unload_dialog dcl-id)
-          (princ "\nCannot open ESKD dialog.")
+          (princ "\nНе удалось открыть окно ESKD.")
         )
         (progn
           (setq action nil)
@@ -91,7 +91,7 @@
             ((= action "cambrics_report")
               (if *eskd-server-url*
                 (eskd-ui-open-url (strcat (eskd-trim-right-slash *eskd-server-url*) "/reports/cambrics/"))
-                (princ "\nESKD server URL is not set. Run ESKD_LOGIN first.")
+                (princ "\nАдрес сервера ESKD не задан. Сначала выполните вход.")
               )
             )
             (T nil)
@@ -103,5 +103,5 @@
   (princ)
 )
 
-(princ "\nESKD UI loaded. Command: ESKD.")
+(princ "\nИнтерфейс ESKD загружен. Команда: ESKD.")
 (princ)

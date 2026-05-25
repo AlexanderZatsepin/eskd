@@ -2,51 +2,51 @@ eskd_main : dialog {
   label = "ESKD";
 
   : boxed_column {
-    label = "Authorization";
+    label = "Авторизация";
     : row {
-      : button { key = "login"; label = "Login"; width = 18; }
-      : button { key = "status"; label = "Status"; width = 18; }
-      : button { key = "logout"; label = "Logout"; width = 18; }
+      : button { key = "login"; label = "Войти"; width = 18; }
+      : button { key = "status"; label = "Статус"; width = 18; }
+      : button { key = "logout"; label = "Выйти"; width = 18; }
     }
   }
 
   : boxed_column {
-    label = "Current project and cabinet";
-    : edit_box { key = "project_id"; label = "PROJECT_ID"; edit_width = 28; }
-    : edit_box { key = "project_name"; label = "PROJECT_NAME"; edit_width = 28; }
-    : edit_box { key = "project_description"; label = "PROJECT_DESCRIPTION"; edit_width = 28; }
-    : edit_box { key = "cabinet_id"; label = "CABINET_ID"; edit_width = 28; }
-    : edit_box { key = "cabinet_name"; label = "CABINET_NAME"; edit_width = 28; }
-    : edit_box { key = "cabinet_description"; label = "CABINET_DESCRIPTION"; edit_width = 28; }
+    label = "Текущий проект и шкаф";
+    : edit_box { key = "project_id"; label = "Код проекта"; edit_width = 28; }
+    : edit_box { key = "project_name"; label = "Название проекта"; edit_width = 28; }
+    : edit_box { key = "project_description"; label = "Описание проекта"; edit_width = 28; }
+    : edit_box { key = "cabinet_id"; label = "Код шкафа"; edit_width = 28; }
+    : edit_box { key = "cabinet_name"; label = "Название шкафа"; edit_width = 28; }
+    : edit_box { key = "cabinet_description"; label = "Описание шкафа"; edit_width = 28; }
     : row {
-      : button { key = "context_save"; label = "Use context"; width = 18; }
-      : button { key = "project_sync"; label = "Project Sync"; width = 18; }
-      : button { key = "cabinet_sync"; label = "Cabinet Sync"; width = 18; }
+      : button { key = "context_save"; label = "Запомнить"; width = 18; }
+      : button { key = "project_sync"; label = "Сохранить проект"; width = 20; }
+      : button { key = "cabinet_sync"; label = "Сохранить шкаф"; width = 20; }
     }
   }
 
   : boxed_column {
-    label = "Marking";
+    label = "Маркировка";
     : row {
-      : button { key = "wire_insert"; label = "Add marking block"; width = 24; }
+      : button { key = "wire_insert"; label = "Добавить блок маркировки"; width = 32; }
     }
     : row {
-      : button { key = "wire_sync"; label = "Marking Sync"; width = 18; }
-      : button { key = "wire_link"; label = "Link REF_ID"; width = 18; }
-      : button { key = "wire_clear"; label = "Clear REF_ID"; width = 18; }
+      : button { key = "wire_sync"; label = "Сохранить"; width = 18; }
+      : button { key = "wire_link"; label = "Связать"; width = 18; }
+      : button { key = "wire_clear"; label = "Очистить связь"; width = 18; }
     }
   }
 
   : boxed_column {
-    label = "Reports";
+    label = "Отчеты";
     : row {
-      : button { key = "cambrics_report"; label = "Cambrics report"; width = 24; }
+      : button { key = "cambrics_report"; label = "Таблица кембриков"; width = 32; }
     }
   }
 
   : row {
     fixed_width = true;
     alignment = centered;
-    : cancel_button { key = "close"; label = "Close"; width = 18; }
+    : cancel_button { key = "close"; label = "Закрыть"; width = 18; }
   }
 }

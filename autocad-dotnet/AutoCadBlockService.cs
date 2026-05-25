@@ -87,7 +87,7 @@ namespace Eskd.AutoCAD
                     throw new InvalidOperationException("В чертеже нет блока " + MarkingBlockName + ".");
                 }
 
-                var modelSpace = (BlockTableRecord)transaction.GetObject(blockTable[BlockTableRecord.ModelSpace], OpenMode.ForRead);
+                var modelSpace = (BlockTableRecord)transaction.GetObject(blockTable[BlockTableRecord.ModelSpace], OpenMode.ForWrite);
                 var definition = (BlockTableRecord)transaction.GetObject(blockTable[MarkingBlockName], OpenMode.ForRead);
 
                 var reference = new BlockReference(point, definition.ObjectId);

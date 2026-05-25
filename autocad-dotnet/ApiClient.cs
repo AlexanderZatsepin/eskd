@@ -167,6 +167,64 @@ namespace Eskd.AutoCAD
             };
         }
 
+        public List<WireDictionaryItem> GetWireTypes()
+        {
+            return GetWireDictionary("/api/wire-types/");
+        }
+
+        public List<WireDictionaryItem> GetWireColors()
+        {
+            return GetWireDictionary("/api/wire-colors/");
+        }
+
+        public void PatchEndpoint(
+            string endpointId,
+            string refId,
+            string mark1,
+            string mark2,
+            string wireType,
+            string wireColor,
+            string syncStatus)
+        {
+            if (string.IsNullOrWhiteSpace(endpointId))
+            {
+                return;
+            }
+
+            var payload = new Dictionary<string, object>();
+            if (refId != null)
+            {
+                payload["ref_id"] = refId;
+            }
+            if (mark1 != null)
+            {
+                payload["mark_1"] = mark1;
+            }
+            if (mark2 != null)
+            {
+                payload["mark_2"] = mark2;
+            }
+            if (wireType != null)
+            {
+                payload["wire_type"] = wireType;
+            }
+            if (wireColor != null)
+            {
+                payload["wire_color"] = wireColor;
+            }
+            if (syncStatus != null)
+            {
+                payload["sync_status"] = syncStatus;
+            }
+
+            Request(
+                "PATCH",
+                "/api/wire-endpoints/" + Uri.EscapeDataString(endpointId) + "/",
+                _json.Serialize(payload),
+                "application/json",
+                true);
+        }
+
         public DrawingCheckResult CheckDrawing(string cabinetId, List<string> endpointIds, List<string> emptyHandles)
         {
             var payload = _json.Serialize(new Dictionary<string, object>
@@ -199,6 +257,21 @@ namespace Eskd.AutoCAD
                 Name = JsonMap.String(item, "name"),
                 Description = JsonMap.String(item, "description")
             };
+        }
+
+        private List<WireDictionaryItem> GetWireDictionary(string path)
+        {
+            var response = Request("GET", path, null, null, true);
+            var result = new List<WireDictionaryItem>();
+            foreach (var item in ResultItems(response))
+            {
+                result.Add(new WireDictionaryItem
+                {
+                    Id = JsonMap.Int(item, "id"),
+                    Name = JsonMap.String(item, "name")
+                });
+            }
+            return result;
         }
 
         private IEnumerable<IDictionary<string, object>> ResultItems(IDictionary<string, object> response)

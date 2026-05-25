@@ -116,7 +116,9 @@ class WireEndpointSerializer(serializers.ModelSerializer):
         return super().update(instance, validated_data)
 
     def _set_dictionary_relations(self, validated_data):
-        wire_type_name = validated_data.pop("wire_type", None) or "-"
-        wire_color_name = validated_data.pop("wire_color", None) or "-"
-        validated_data["wire_type"], _ = WireType.objects.get_or_create(name=wire_type_name)
-        validated_data["wire_color"], _ = WireColor.objects.get_or_create(name=wire_color_name)
+        if "wire_type" in validated_data:
+            wire_type_name = validated_data.pop("wire_type", None) or "-"
+            validated_data["wire_type"], _ = WireType.objects.get_or_create(name=wire_type_name)
+        if "wire_color" in validated_data:
+            wire_color_name = validated_data.pop("wire_color", None) or "-"
+            validated_data["wire_color"], _ = WireColor.objects.get_or_create(name=wire_color_name)

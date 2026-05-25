@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Windows.Forms;
 using AcadApp = Autodesk.AutoCAD.ApplicationServices.Application;
@@ -29,6 +30,8 @@ namespace Eskd.AutoCAD
 
         private TextBox _mark1;
         private TextBox _mark2;
+        private ComboBox _wireTypes;
+        private ComboBox _wireColors;
         private ListBox _checkResult;
 
         private EskdProject _selectedProject;
@@ -139,9 +142,24 @@ namespace Eskd.AutoCAD
             var group = Group("Маркировка");
             _mark1 = TextBox("-");
             _mark2 = TextBox("-");
+            _wireTypes = Combo();
+            _wireColors = Combo();
             group.Controls.Add(Row(Label("MARK_1"), _mark1));
             group.Controls.Add(Row(Label("MARK_2"), _mark2));
             group.Controls.Add(Button("Добавить блок маркировки", OnInsertMarking));
+
+            group.Controls.Add(Row(Label("Тип"), _wireTypes));
+            group.Controls.Add(Row(Label("Цвет"), _wireColors));
+
+            var dictionaryButtons = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true };
+            dictionaryButtons.Controls.Add(Button("Загрузить справочники", OnLoadWireDictionaries));
+            dictionaryButtons.Controls.Add(Button("Назначить выбранным", OnAssignWireTypeColor));
+            group.Controls.Add(dictionaryButtons);
+
+            var linkButtons = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true };
+            linkButtons.Controls.Add(Button("Связать", OnLinkMarkings));
+            linkButtons.Controls.Add(Button("Очистить связь", OnClearRef));
+            group.Controls.Add(linkButtons);
             return group;
         }
 
@@ -241,6 +259,53 @@ namespace Eskd.AutoCAD
             });
         }
 
+        private void OnLoadWireDictionaries(object sender, EventArgs eventArgs)
+        {
+            RunUi(() =>
+            {
+                _wireTypes.DataSource = _api.GetWireTypes();
+                _wireColors.DataSource = _api.GetWireColors();
+            });
+        }
+
+        private void OnAssignWireTypeColor(object sender, EventArgs eventArgs)
+        {
+            RunUi(() =>
+            {
+                RequireProject();
+                RequireCabinet();
+                var wireType = SelectedDictionaryName(_wireTypes);
+                var wireColor = SelectedDictionaryName(_wireColors);
+                var patches = _blocks.AssignWireToSelectedBlocks(_selectedProject, _selectedCabinet, wireType, wireColor);
+                PatchEndpoints(patches);
+                MessageBox.Show("Назначено блоков: " + patches.Count, "ESKD", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            });
+        }
+
+        private void OnLinkMarkings(object sender, EventArgs eventArgs)
+        {
+            RunUi(() =>
+            {
+                RequireProject();
+                RequireCabinet();
+                var patches = _blocks.LinkTwoMarkingBlocks(_selectedProject, _selectedCabinet);
+                PatchEndpoints(patches);
+                MessageBox.Show("Маркировки связаны.", "ESKD", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            });
+        }
+
+        private void OnClearRef(object sender, EventArgs eventArgs)
+        {
+            RunUi(() =>
+            {
+                RequireProject();
+                RequireCabinet();
+                var patch = _blocks.ClearSelectedRef(_selectedProject, _selectedCabinet);
+                PatchEndpoint(patch);
+                MessageBox.Show("Связь очищена.", "ESKD", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            });
+        }
+
         private void OnCheckDrawing(object sender, EventArgs eventArgs)
         {
             RunUi(() =>
@@ -277,6 +342,41 @@ namespace Eskd.AutoCAD
             _cabinetCode.Text = cabinet.CabinetCode;
             _cabinetName.Text = cabinet.Name;
             _cabinetDescription.Text = cabinet.Description;
+        }
+
+        private void PatchEndpoints(IEnumerable<EndpointPatch> patches)
+        {
+            foreach (var patch in patches)
+            {
+                PatchEndpoint(patch);
+            }
+        }
+
+        private void PatchEndpoint(EndpointPatch patch)
+        {
+            if (patch == null || string.IsNullOrWhiteSpace(patch.EndpointId))
+            {
+                return;
+            }
+
+            _api.PatchEndpoint(
+                patch.EndpointId,
+                patch.RefId,
+                patch.Mark1,
+                patch.Mark2,
+                patch.WireType,
+                patch.WireColor,
+                patch.SyncStatus);
+        }
+
+        private static string SelectedDictionaryName(ComboBox comboBox)
+        {
+            var item = comboBox.SelectedItem as WireDictionaryItem;
+            if (item == null || string.IsNullOrWhiteSpace(item.Name))
+            {
+                return "-";
+            }
+            return item.Name;
         }
 
         private void UpdateAuthStatus()

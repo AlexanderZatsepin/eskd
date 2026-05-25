@@ -44,6 +44,17 @@ namespace Eskd.AutoCAD
         public string SyncStatus { get; set; }
     }
 
+    internal sealed class WireDictionaryItem
+    {
+        public int Id { get; set; }
+        public string Name { get; set; }
+
+        public override string ToString()
+        {
+            return string.IsNullOrWhiteSpace(Name) ? "-" : Name;
+        }
+    }
+
     internal sealed class DrawingCheckResult
     {
         public DrawingCheckResult()

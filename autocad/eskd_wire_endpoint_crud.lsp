@@ -90,6 +90,18 @@
   result
 )
 
+(defun eskd-created-endpoint-id (result / status response endpoint-id)
+  (setq status (car result))
+  (setq response (cadr result))
+  (if (and (>= status 200) (< status 300))
+    (progn
+      (setq endpoint-id (eskd-json-token-value response "endpoint_id"))
+      endpoint-id
+    )
+    nil
+  )
+)
+
 (defun eskd-wire-body (attrs cabinet-id)
   (eskd-json-object
     (list
@@ -353,38 +365,65 @@
   (princ)
 )
 
-(defun c:ESKD_WIRE_INSERT (/ project-id cabinet-id mark-1 mark-2 point entity)
-  (if (eskd-require-cabinet-context)
+(defun c:ESKD_WIRE_INSERT (/ project-id cabinet-id mark-1 mark-2 attrs db-cabinet-id result endpoint-id point entity)
+  (if (and (eskd-require-auth) (eskd-require-cabinet-context))
     (progn
       (setq project-id *eskd-current-project-id*)
       (setq cabinet-id *eskd-current-cabinet-id*)
       (setq mark-1 (eskd-getstring-default "MARK_1" "-"))
       (setq mark-2 (eskd-getstring-default "MARK_2" "-"))
-      (setq point (getpoint "\nInsertion point for marking block: "))
-      (if point
+      (setq attrs
+        (list
+          (cons "ENDPOINT_ID" "")
+          (cons "PROJECT_ID" project-id)
+          (cons "CABINET_ID" cabinet-id)
+          (cons "REF_ID" "")
+          (cons "MARK_1" mark-1)
+          (cons "MARK_2" mark-2)
+          (cons "WIRE_TYPE" "-")
+          (cons "WIRE_COLOR" "-")
+          (cons "SYNC_STATUS" "SYNCED")
+        )
+      )
+      (setq db-cabinet-id (eskd-find-cabinet-id attrs))
+      (if db-cabinet-id
         (progn
-          (setq entity (eskd-insert-block-reference "Block_Test_Marking" point))
-          (if entity
+          (setq result (eskd-http-json "POST" (eskd-api-url "/api/wire-endpoints/") (eskd-wire-body attrs db-cabinet-id)))
+          (eskd-print-http-result "WireEndpoint CREATE before insert" result)
+          (setq endpoint-id (eskd-created-endpoint-id result))
+          (if endpoint-id
             (progn
-              (eskd-set-block-attrs
-                entity
-                (list
-                  (cons "ENDPOINT_ID" "")
-                  (cons "PROJECT_ID" project-id)
-                  (cons "CABINET_ID" cabinet-id)
-                  (cons "REF_ID" "")
-                  (cons "MARK_1" mark-1)
-                  (cons "MARK_2" mark-2)
-                  (cons "WIRE_TYPE" "-")
-                  (cons "WIRE_COLOR" "-")
-                  (cons "SYNC_STATUS" "NEW")
+              (setq point (getpoint "\nInsertion point for marking block: "))
+              (if point
+                (progn
+                  (setq entity (eskd-insert-block-reference "Block_Test_Marking" point))
+                  (if entity
+                    (progn
+                      (eskd-set-block-attrs
+                        entity
+                        (list
+                          (cons "ENDPOINT_ID" endpoint-id)
+                          (cons "PROJECT_ID" project-id)
+                          (cons "CABINET_ID" cabinet-id)
+                          (cons "REF_ID" "")
+                          (cons "MARK_1" mark-1)
+                          (cons "MARK_2" mark-2)
+                          (cons "WIRE_TYPE" "-")
+                          (cons "WIRE_COLOR" "-")
+                          (cons "SYNC_STATUS" "SYNCED")
+                        )
+                      )
+                      (princ (strcat "\nMarking block inserted from DB endpoint: " endpoint-id))
+                    )
+                    (princ "\nDB endpoint was created, but Block_Test_Marking was not inserted. Make sure the block definition exists in this drawing.")
+                  )
                 )
               )
-              (princ "\nMarking block inserted.")
             )
-            (princ "\nBlock_Test_Marking was not inserted. Make sure the block definition exists in this drawing.")
+            (princ "\nWireEndpoint was not created. Visual block was not inserted.")
           )
         )
+        (princ "\nParent cabinet was not found. Create/sync cabinet first.")
       )
     )
   )

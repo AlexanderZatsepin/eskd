@@ -419,6 +419,59 @@ namespace Eskd.AutoCAD
             return result;
         }
 
+        public List<EndpointPatch> ReadSelectedBlocksForDbSync(EskdProject project, EskdCabinet cabinet)
+        {
+            var result = new List<EndpointPatch>();
+            var document = Application.DocumentManager.MdiActiveDocument;
+            var database = document.Database;
+            var editor = document.Editor;
+
+            var selection = editor.GetSelection(new SelectionFilter(new[] { new TypedValue(0, "INSERT") }));
+            if (selection.Status != PromptStatus.OK)
+            {
+                throw new OperationCanceledException("Выбор блоков отменен.");
+            }
+
+            using (document.LockDocument())
+            using (var transaction = database.TransactionManager.StartTransaction())
+            {
+                var markings = SelectedContextMarkings(selection.Value, transaction, project, cabinet);
+                if (markings.Count == 0)
+                {
+                    throw new InvalidOperationException("В выборе нет маркировок выбранного проекта и шкафа.");
+                }
+
+                foreach (var marking in markings)
+                {
+                    var endpointId = Attr(marking.Attributes, "ENDPOINT_ID");
+                    if (string.IsNullOrWhiteSpace(endpointId))
+                    {
+                        continue;
+                    }
+
+                    result.Add(new EndpointPatch
+                    {
+                        EndpointId = endpointId,
+                        RefId = Attr(marking.Attributes, "REF_ID"),
+                        Mark1 = MarkAttr(marking.Attributes, "MARK_1"),
+                        Mark2 = MarkAttr(marking.Attributes, "MARK_2"),
+                        WireType = EmptyToDash(Attr(marking.Attributes, "WIRE_TYPE")),
+                        WireColor = EmptyToDash(Attr(marking.Attributes, "WIRE_COLOR")),
+                        SyncStatus = "SYNCED"
+                    });
+                }
+
+                transaction.Commit();
+            }
+
+            if (result.Count == 0)
+            {
+                throw new InvalidOperationException("В выбранных блоках нет ENDPOINT_ID для синхронизации с БД.");
+            }
+
+            return result;
+        }
+
         public List<string> DeleteSelectedMarkings(EskdProject project, EskdCabinet cabinet)
         {
             var result = new List<string>();

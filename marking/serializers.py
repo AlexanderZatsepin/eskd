@@ -97,7 +97,7 @@ class WireEndpointSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         for field in ("mark_1", "mark_2"):
-            if not attrs.get(field):
+            if field in attrs and not attrs.get(field):
                 attrs[field] = "-"
         return attrs
 

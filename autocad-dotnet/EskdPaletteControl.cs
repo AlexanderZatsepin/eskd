@@ -168,6 +168,7 @@ namespace Eskd.AutoCAD
             copyButtons.Controls.Add(Button("Перенести в выбранный шкаф", OnMoveSelectedToCabinet));
 
             var editButtons = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true };
+            editButtons.Controls.Add(Button("Обновить БД из выбранных", OnSyncSelectedBlocksToDb));
             editButtons.Controls.Add(Button("Очистить маркировку", OnClearSelectedMarks));
             editButtons.Controls.Add(Button("Удалить маркировку", OnDeleteSelectedMarkings));
 
@@ -383,6 +384,18 @@ namespace Eskd.AutoCAD
                 _mark1.Text = "-";
                 _mark2.Text = "-";
                 MessageBox.Show("Очищено маркировок: " + patches.Count, "ESKD", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            });
+        }
+
+        private void OnSyncSelectedBlocksToDb(object sender, EventArgs eventArgs)
+        {
+            RunUi(() =>
+            {
+                RequireProject();
+                RequireCabinet();
+                var patches = _blocks.ReadSelectedBlocksForDbSync(_selectedProject, _selectedCabinet);
+                PatchEndpoints(patches);
+                MessageBox.Show("Обновлено записей в БД: " + patches.Count, "ESKD", MessageBoxButtons.OK, MessageBoxIcon.Information);
             });
         }
 

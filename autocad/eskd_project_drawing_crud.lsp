@@ -372,7 +372,7 @@
   (if (eskd-context-has-project-name)
     T
     (progn
-      (princ "\nР’РІРµРґРёС‚Рµ РЅР°Р·РІР°РЅРёРµ РїСЂРѕРµРєС‚Р°.")
+      (princ "\nВведите название проекта.")
       nil
     )
   )
@@ -382,7 +382,7 @@
   (if (eskd-context-has-project-code)
     T
     (progn
-      (princ "\nР’РІРµРґРёС‚Рµ С€РёС„СЂ РїСЂРѕРµРєС‚Р°.")
+      (princ "\nВведите шифр проекта.")
       nil
     )
   )
@@ -392,7 +392,7 @@
   (if (eskd-context-has-project)
     T
     (progn
-      (princ "\nРЎРЅР°С‡Р°Р»Р° СЃРѕС…СЂР°РЅРёС‚Рµ РїСЂРѕРµРєС‚, С‡С‚РѕР±С‹ СЃРµСЂРІРµСЂ РІС‹РґР°Р» PROJECT_ID.")
+      (princ "\nСначала сохраните проект, чтобы сервер выдал PROJECT_ID.")
       nil
     )
   )
@@ -402,7 +402,7 @@
   (if (eskd-context-has-cabinet-name)
     T
     (progn
-      (princ "\nР’РІРµРґРёС‚Рµ РЅР°Р·РІР°РЅРёРµ С€РєР°С„Р°.")
+      (princ "\nВведите название шкафа.")
       nil
     )
   )
@@ -412,7 +412,7 @@
   (if (eskd-context-has-cabinet)
     T
     (progn
-      (princ "\nРЎРЅР°С‡Р°Р»Р° СЃРѕС…СЂР°РЅРёС‚Рµ РїСЂРѕРµРєС‚ Рё С€РєР°С„, С‡С‚РѕР±С‹ СЃРµСЂРІРµСЂ РІС‹РґР°Р» PROJECT_ID Рё CABINET_ID.")
+      (princ "\nСначала сохраните проект и шкаф, чтобы сервер выдал PROJECT_ID и CABINET_ID.")
       nil
     )
   )
@@ -521,9 +521,9 @@
           (if id
             (progn
               (eskd-store-current-project-id result)
-              (princ "\nРџСЂРѕРµРєС‚ РЅР°Р№РґРµРЅ Рё РІС‹Р±СЂР°РЅ.")
+              (princ "\nПроект найден и выбран.")
             )
-            (princ "\nРџСЂРѕРµРєС‚ СЃ С‚Р°РєРёРј С€РёС„СЂРѕРј РЅРµ РЅР°Р№РґРµРЅ.")
+            (princ "\nПроект с таким шифром не найден.")
           )
         )
       )
@@ -625,7 +625,7 @@
                 (eskd-store-current-project-id
                   (eskd-print-http-result "Project SYNC found" (eskd-http-json "GET" (eskd-project-code-query-url attrs) nil))
                 )
-                (princ "\nРџСЂРѕРµРєС‚ СѓР¶Рµ РµСЃС‚СЊ РЅР° СЃРµСЂРІРµСЂРµ, РІС‹Р±СЂР°РЅ СЃСѓС‰РµСЃС‚РІСѓСЋС‰РёР№.")
+                (princ "\nПроект уже есть на сервере, выбран существующий.")
               )
             )
             (if (eskd-require-project-name)

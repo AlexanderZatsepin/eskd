@@ -46,7 +46,7 @@
   (setq dcl-path (eskd-ui-dcl-path))
   (if (not dcl-path)
     (progn
-      (princ "\nРќРµ РЅР°Р№РґРµРЅ eskd_ui.dcl. Р”РѕР±Р°РІСЊС‚Рµ РїР°РїРєСѓ autocad РІ Support File Search Path РёР»Рё Р·Р°РіСЂСѓР¶Р°Р№С‚Рµ LISP РёР· СЌС‚РѕР№ РїР°РїРєРё.")
+      (princ "\nНе найден eskd_ui.dcl. Добавьте папку autocad в Support File Search Path или загружайте LISP из этой папки.")
       (princ)
     )
     (progn
@@ -54,7 +54,7 @@
       (if (not (new_dialog "eskd_main" dcl-id))
         (progn
           (unload_dialog dcl-id)
-          (princ "\nРќРµ СѓРґР°Р»РѕСЃСЊ РѕС‚РєСЂС‹С‚СЊ РѕРєРЅРѕ ESKD.")
+          (princ "\nНе удалось открыть окно ESKD.")
         )
         (progn
           (setq action nil)
@@ -92,7 +92,7 @@
             ((= action "cambrics_report")
               (if *eskd-server-url*
                 (eskd-ui-open-url (strcat (eskd-trim-right-slash *eskd-server-url*) "/reports/cambrics/"))
-                (princ "\nРђРґСЂРµСЃ СЃРµСЂРІРµСЂР° ESKD РЅРµ Р·Р°РґР°РЅ. РЎРЅР°С‡Р°Р»Р° РІС‹РїРѕР»РЅРёС‚Рµ РІС…РѕРґ.")
+                (princ "\nАдрес сервера ESKD не задан. Сначала выполните вход.")
               )
             )
             (T nil)
@@ -104,5 +104,5 @@
   (princ)
 )
 
-(princ "\nРРЅС‚РµСЂС„РµР№СЃ ESKD Р·Р°РіСЂСѓР¶РµРЅ. РљРѕРјР°РЅРґР°: ESKD.")
+(princ "\nИнтерфейс ESKD загружен. Команда: ESKD.")
 (princ)

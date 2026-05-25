@@ -1,8 +1,8 @@
 from rest_framework import viewsets
 
-from marking.models import Drawing, Project, WireColor, WireEndpoint, WireType
+from marking.models import Cabinet, Project, WireColor, WireEndpoint, WireType
 from marking.serializers import (
-    DrawingSerializer,
+    CabinetSerializer,
     ProjectSerializer,
     WireColorSerializer,
     WireEndpointSerializer,
@@ -12,7 +12,7 @@ from marking.serializers import (
 
 class ProjectViewSet(viewsets.ModelViewSet):
     serializer_class = ProjectSerializer
-    search_fields = ["project_id", "name"]
+    search_fields = ["code", "name"]
 
     def get_queryset(self):
         queryset = Project.objects.all()
@@ -20,28 +20,28 @@ class ProjectViewSet(viewsets.ModelViewSet):
         order_number = self.request.query_params.get("order_number")
 
         if project_id:
-            queryset = queryset.filter(project_id=project_id)
+            queryset = queryset.filter(code=project_id)
         if order_number:
             queryset = queryset.filter(order_number=order_number)
 
         return queryset
 
 
-class DrawingViewSet(viewsets.ModelViewSet):
-    serializer_class = DrawingSerializer
+class CabinetViewSet(viewsets.ModelViewSet):
+    serializer_class = CabinetSerializer
 
     def get_queryset(self):
-        queryset = Drawing.objects.select_related("project")
+        queryset = Cabinet.objects.select_related("project")
         project_id = self.request.query_params.get("project_id")
         order_number = self.request.query_params.get("order_number")
-        dwg_id = self.request.query_params.get("dwg_id")
+        cabinet_id = self.request.query_params.get("cabinet_id")
 
         if project_id:
-            queryset = queryset.filter(project__project_id=project_id)
+            queryset = queryset.filter(project__code=project_id)
         if order_number:
             queryset = queryset.filter(project__order_number=order_number)
-        if dwg_id:
-            queryset = queryset.filter(dwg_id=dwg_id)
+        if cabinet_id:
+            queryset = queryset.filter(code=cabinet_id)
 
         return queryset
 
@@ -60,28 +60,28 @@ class WireColorViewSet(viewsets.ModelViewSet):
 
 class WireEndpointViewSet(viewsets.ModelViewSet):
     serializer_class = WireEndpointSerializer
-    lookup_field = "endpoint_id"
+    lookup_field = "uid"
 
     def get_queryset(self):
-        queryset = WireEndpoint.objects.select_related("drawing", "drawing__project")
+        queryset = WireEndpoint.objects.select_related("cabinet", "cabinet__project")
         project_id = self.request.query_params.get("project_id")
         order_number = self.request.query_params.get("order_number")
-        dwg_id = self.request.query_params.get("dwg_id")
+        cabinet_id = self.request.query_params.get("cabinet_id")
         endpoint_id = self.request.query_params.get("endpoint_id")
         ref_id = self.request.query_params.get("ref_id")
         mark_1 = self.request.query_params.get("mark_1")
         sync_status = self.request.query_params.get("sync_status")
 
         if project_id:
-            queryset = queryset.filter(drawing__project__project_id=project_id)
+            queryset = queryset.filter(cabinet__project__code=project_id)
         if order_number:
-            queryset = queryset.filter(drawing__project__order_number=order_number)
-        if dwg_id:
-            queryset = queryset.filter(drawing__dwg_id=dwg_id)
+            queryset = queryset.filter(cabinet__project__order_number=order_number)
+        if cabinet_id:
+            queryset = queryset.filter(cabinet__code=cabinet_id)
         if endpoint_id:
-            queryset = queryset.filter(endpoint_id=endpoint_id)
+            queryset = queryset.filter(uid=endpoint_id)
         if ref_id:
-            queryset = queryset.filter(ref_id=ref_id)
+            queryset = queryset.filter(ref=ref_id)
         if mark_1:
             queryset = queryset.filter(mark_1=mark_1)
         if sync_status:

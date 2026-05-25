@@ -1,9 +1,11 @@
 from rest_framework import serializers
 
-from marking.models import Drawing, Project, WireColor, WireEndpoint, WireType
+from marking.models import Cabinet, Project, WireColor, WireEndpoint, WireType
 
 
 class ProjectSerializer(serializers.ModelSerializer):
+    project_id = serializers.CharField(source="code")
+
     class Meta:
         model = Project
         fields = [
@@ -18,20 +20,21 @@ class ProjectSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "created_at", "updated_at"]
 
 
-class DrawingSerializer(serializers.ModelSerializer):
-    project_id = serializers.CharField(source="project.project_id", read_only=True)
+class CabinetSerializer(serializers.ModelSerializer):
+    project_id = serializers.CharField(source="project.code", read_only=True)
     order_number = serializers.CharField(source="project.order_number", read_only=True)
+    cabinet_id = serializers.CharField(source="code")
 
     class Meta:
-        model = Drawing
+        model = Cabinet
         fields = [
             "id",
             "project",
             "project_id",
             "order_number",
-            "dwg_id",
+            "cabinet_id",
             "name",
-            "file_name",
+            "description",
             "created_at",
             "updated_at",
         ]
@@ -53,9 +56,11 @@ class WireColorSerializer(serializers.ModelSerializer):
 
 
 class WireEndpointSerializer(serializers.ModelSerializer):
-    project_id = serializers.CharField(source="drawing.project.project_id", read_only=True)
-    order_number = serializers.CharField(source="drawing.project.order_number", read_only=True)
-    dwg_id = serializers.CharField(source="drawing.dwg_id", read_only=True)
+    endpoint_id = serializers.CharField(source="uid", read_only=True)
+    project_id = serializers.CharField(source="cabinet.project.code", read_only=True)
+    order_number = serializers.CharField(source="cabinet.project.order_number", read_only=True)
+    cabinet_id = serializers.CharField(source="cabinet.code", read_only=True)
+    ref_id = serializers.CharField(source="ref", required=False, allow_blank=True)
     wire_type = serializers.CharField(required=False, allow_blank=True)
     wire_color = serializers.CharField(required=False, allow_blank=True)
     sync_status = serializers.CharField(required=False, allow_blank=True)
@@ -64,14 +69,13 @@ class WireEndpointSerializer(serializers.ModelSerializer):
         model = WireEndpoint
         fields = [
             "endpoint_id",
-            "drawing",
+            "cabinet",
             "project_id",
             "order_number",
-            "dwg_id",
+            "cabinet_id",
             "ref_id",
             "mark_1",
             "mark_2",
-            "position",
             "wire_type",
             "wire_color",
             "sync_status",
@@ -82,7 +86,7 @@ class WireEndpointSerializer(serializers.ModelSerializer):
             "endpoint_id",
             "project_id",
             "order_number",
-            "dwg_id",
+            "cabinet_id",
             "created_at",
             "updated_at",
         ]
@@ -90,7 +94,6 @@ class WireEndpointSerializer(serializers.ModelSerializer):
             "ref_id": {"allow_blank": True, "required": False},
             "mark_1": {"allow_blank": True, "required": False},
             "mark_2": {"allow_blank": True, "required": False},
-            "position": {"allow_blank": True, "required": False},
             "sync_status": {"allow_blank": True, "required": False},
         }
 

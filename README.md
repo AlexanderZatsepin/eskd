@@ -1,6 +1,6 @@
 # ESKD marking CRUD service
 
-Минимальный Django REST Framework CRUD-микросервис для таблицы встречной маркировки и выгрузки таблицы кембриков.
+Минимальный Django REST Framework CRUD-микросервис для встречной маркировки и выгрузки таблицы кембриков.
 
 ## Stack
 
@@ -22,27 +22,36 @@
 
 Пара `project_id + order_number` уникальна.
 
-### Drawing
+### Cabinet
 
 - `project` - ссылка на проект
-- `dwg_id` - идентификатор чертежа или DWG-файла
-- `name` - название чертежа
-- `file_name` - имя файла
+- `cabinet_id` - идентификатор шкафа
+- `name` - название шкафа
+- `description` - описание
 
-Пара `project + dwg_id` уникальна.
+Пара `project + cabinet_id` уникальна.
+
+### WireType
+
+- `name` - тип/сечение провода
+- `description` - описание
+
+### WireColor
+
+- `name` - цвет провода
+- `description` - описание
 
 ### WireEndpoint
 
 Один блок маркировки / одна запись маркировки.
 
 - `endpoint_id` - UUID, генерируется сервером
-- `drawing` - ссылка на чертеж
+- `cabinet` - ссылка на шкаф
 - `ref_id` - UUID связи, присваивается командой связи двух блоков
 - `mark_1` - маркировка 1, по умолчанию `-`
 - `mark_2` - маркировка 2, по умолчанию `-`
-- `position` - позиция/зона/место
-- `wire_type` - тип/сечение провода, по умолчанию `-`
-- `wire_color` - цвет провода, по умолчанию `-`
+- `wire_type` - ссылка на справочник типа провода, по умолчанию `-`
+- `wire_color` - ссылка на справочник цвета провода, по умолчанию `-`
 - `sync_status` - `NEW`, `SYNCED`, `DIRTY`, `ERROR`
 
 ## Authorization
@@ -58,7 +67,7 @@ Authorization: Token <token>
 ```powershell
 Invoke-RestMethod `
   -Method Post `
-  -Uri http://127.0.0.1:8000/api/auth/token/ `
+  -Uri http://127.0.0.1:8010/api/auth/token/ `
   -Body @{ username = "admin"; password = "awesome1" }
 ```
 
@@ -71,7 +80,7 @@ python manage.py createsuperuser
 ## API
 
 - `/api/projects/`
-- `/api/drawings/`
+- `/api/cabinets/`
 - `/api/wire-types/`
 - `/api/wire-colors/`
 - `/api/wire-endpoints/`
@@ -79,10 +88,10 @@ python manage.py createsuperuser
 Фильтры:
 
 - `/api/projects/?project_id=PRJ-2026-001&order_number=ORD-001`
-- `/api/drawings/?project_id=PRJ-2026-001&order_number=ORD-001`
-- `/api/drawings/?project_id=PRJ-2026-001&order_number=ORD-001&dwg_id=SHU-01-001`
+- `/api/cabinets/?project_id=PRJ-2026-001&order_number=ORD-001`
+- `/api/cabinets/?project_id=PRJ-2026-001&order_number=ORD-001&cabinet_id=SHU-01`
 - `/api/wire-endpoints/?project_id=PRJ-2026-001&order_number=ORD-001`
-- `/api/wire-endpoints/?dwg_id=SHU-01-001`
+- `/api/wire-endpoints/?cabinet_id=SHU-01`
 - `/api/wire-endpoints/?ref_id=<uuid>`
 - `/api/wire-endpoints/?mark_1=K1:14`
 - `/api/wire-endpoints/?sync_status=DIRTY`
@@ -92,13 +101,13 @@ python manage.py createsuperuser
 Страница формирования Excel-таблицы кембриков:
 
 ```text
-http://127.0.0.1:8000/reports/cambrics/
+http://127.0.0.1:8010/reports/cambrics/
 ```
 
 Страница требует вход через Django admin:
 
 ```text
-http://127.0.0.1:8000/admin/
+http://127.0.0.1:8010/admin/
 ```
 
 Форма принимает:
@@ -108,7 +117,7 @@ PROJECT_ID
 ORDER_NUMBER
 ```
 
-После отправки скачивается `.xlsx` файл. Таблица сортируется по чертежу, маркировке и `REF_ID`.
+После отправки скачивается `.xlsx` файл. Таблица сортируется по шкафу, маркировке и `REF_ID`.
 
 ## Run On Windows
 
@@ -145,7 +154,7 @@ APPLOAD -> autocad/eskd_ui.lsp
 ESKD
 ```
 
-Текущий интерфейс сделан на DCL. DCL в AutoCAD модальный: пока окно открыто, чертежом работать нельзя. Поэтому окно закрывается после нажатия кнопки, выполняет команду и возвращает управление AutoCAD. Для постоянно открытой панели нужен отдельный .NET PaletteSet-плагин.
+Текущий интерфейс сделан на DCL. DCL в AutoCAD модальный: пока окно открыто, с чертежом работать нельзя. Поэтому окно закрывается после нажатия кнопки, выполняет команду и возвращает управление AutoCAD. Для постоянно открытой панели нужен отдельный .NET PaletteSet-плагин.
 
 Адрес сервера по умолчанию для `ESKD_LOGIN`:
 
@@ -159,7 +168,8 @@ http://172.16.51.49:8010
 - `Status`
 - `Logout`
 - `Project Sync`
-- `Drawing Sync`
+- `Add cabinet block`
+- `Cabinet Sync`
 - `Add marking block`
 - `Marking Sync`
 - `Link REF_ID`
@@ -178,15 +188,15 @@ PROJECT_NAME
 DESCRIPTION
 ```
 
-Блок чертежа:
+Блок шкафа:
 
 ```text
-Block name: Block_Test_Drawing
+Block name: Block_Test_Cabinet
 PROJECT_ID
 ORDER_NUMBER
-DWG_ID
-DWG_NAME
-FILE_NAME
+CABINET_ID
+CABINET_NAME
+DESCRIPTION
 ```
 
 Блок маркировки:
@@ -196,11 +206,10 @@ Block name: Block_Test_Marking
 ENDPOINT_ID
 PROJECT_ID
 ORDER_NUMBER
-DWG_ID
+CABINET_ID
 REF_ID
 MARK_1
 MARK_2
-POSITION
 WIRE_TYPE
 WIRE_COLOR
 SYNC_STATUS
@@ -209,6 +218,16 @@ SYNC_STATUS
 `ENDPOINT_ID` создается сервером как UUID и записывается обратно в блок после первого успешного `ESKD_WIRE_CREATE` или `ESKD_WIRE_SYNC`.
 
 `REF_ID` создается как UUID командой `ESKD_WIRE_LINK_REF`, когда выбираются два блока маркировки. Сервер сам `REF_ID` не создает.
+
+`ESKD_CABINET_INSERT` / кнопка `Add cabinet block` вставляет новый `Block_Test_Cabinet` и спрашивает:
+
+```text
+PROJECT_ID
+ORDER_NUMBER
+CABINET_ID
+CABINET_NAME
+DESCRIPTION
+```
 
 `ESKD_WIRE_INSERT` / кнопка `Add marking block` вставляет новый `Block_Test_Marking` и спрашивает:
 

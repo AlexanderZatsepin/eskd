@@ -11,10 +11,11 @@ eskd_main : dialog {
   }
 
   : boxed_column {
-    label = "Project and drawing";
+    label = "Project and cabinet";
     : row {
       : button { key = "project_sync"; label = "Project Sync"; width = 18; }
-      : button { key = "drawing_sync"; label = "Drawing Sync"; width = 18; }
+      : button { key = "cabinet_insert"; label = "Add cabinet block"; width = 20; }
+      : button { key = "cabinet_sync"; label = "Cabinet Sync"; width = 18; }
     }
   }
 

@@ -4,7 +4,7 @@ from rest_framework.authtoken.views import obtain_auth_token
 from rest_framework.routers import DefaultRouter
 
 from marking.views import (
-    DrawingViewSet,
+    CabinetViewSet,
     ProjectViewSet,
     WireColorViewSet,
     WireEndpointViewSet,
@@ -15,7 +15,7 @@ from marking.web_views import cambrics_report
 
 router = DefaultRouter()
 router.register("projects", ProjectViewSet, basename="project")
-router.register("drawings", DrawingViewSet, basename="drawing")
+router.register("cabinets", CabinetViewSet, basename="cabinet")
 router.register("wire-types", WireTypeViewSet, basename="wire-type")
 router.register("wire-colors", WireColorViewSet, basename="wire-color")
 router.register("wire-endpoints", WireEndpointViewSet, basename="wire-endpoint")

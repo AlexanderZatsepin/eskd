@@ -24,7 +24,7 @@ def cambrics_report(request):
         context["order_number"] = order_number
 
         try:
-            project = Project.objects.get(project_id=project_id, order_number=order_number)
+            project = Project.objects.get(code=project_id, order_number=order_number)
         except Project.DoesNotExist:
             context["error"] = "Проект с таким PROJECT_ID и ORDER_NUMBER не найден."
         except Project.MultipleObjectsReturned:
@@ -37,31 +37,30 @@ def cambrics_report(request):
 
 def _build_cambrics_response(project):
     endpoints = list(
-        WireEndpoint.objects.select_related("drawing")
-        .filter(drawing__project=project)
-        .order_by("drawing__dwg_id", "mark_1", "ref_id")
+        WireEndpoint.objects.select_related("cabinet", "wire_type", "wire_color")
+        .filter(cabinet__project=project)
+        .order_by("cabinet__code", "mark_1", "ref")
     )
 
     by_ref_id = defaultdict(list)
     for endpoint in endpoints:
-        if endpoint.ref_id:
-            by_ref_id[endpoint.ref_id].append(endpoint)
+        if endpoint.ref:
+            by_ref_id[endpoint.ref].append(endpoint)
 
     workbook = Workbook()
     sheet = workbook.active
     sheet.title = "Кембрики"
 
-    sheet.append(["Проект", project.project_id])
+    sheet.append(["Проект", project.code])
     sheet.append(["Номер заказа", project.order_number])
     sheet.append(["Название", project.name])
     sheet.append([])
 
     headers = [
-        "Чертеж",
+        "Шкаф",
         "Маркировка",
         "Куда идет",
         "REF_ID",
-        "Позиция",
         "Тип провода",
         "Цвет",
     ]
@@ -70,18 +69,17 @@ def _build_cambrics_response(project):
     for endpoint in endpoints:
         linked = [
             other
-            for other in by_ref_id.get(endpoint.ref_id, [])
-            if other.endpoint_id != endpoint.endpoint_id
+            for other in by_ref_id.get(endpoint.ref, [])
+            if other.uid != endpoint.uid
         ]
         linked_marks = ", ".join(_endpoint_label(item) for item in linked)
 
         sheet.append(
             [
-                endpoint.drawing.dwg_id,
+                endpoint.cabinet.code,
                 endpoint.mark_1,
                 linked_marks,
-                endpoint.ref_id,
-                endpoint.position,
+                endpoint.ref,
                 endpoint.wire_type.name if endpoint.wire_type else "-",
                 endpoint.wire_color.name if endpoint.wire_color else "-",
             ]
@@ -103,7 +101,7 @@ def _build_cambrics_response(project):
 
 
 def _endpoint_label(endpoint):
-    return f"{endpoint.mark_1} ({endpoint.drawing.dwg_id})"
+    return f"{endpoint.mark_1} ({endpoint.cabinet.code})"
 
 
 def _format_cambrics_sheet(sheet, endpoint_count):
@@ -126,9 +124,8 @@ def _format_cambrics_sheet(sheet, endpoint_count):
         "B": 24,
         "C": 34,
         "D": 40,
-        "E": 14,
-        "F": 18,
-        "G": 12,
+        "E": 18,
+        "F": 12,
     }
     for column, width in widths.items():
         sheet.column_dimensions[column].width = width
@@ -140,7 +137,7 @@ def _format_cambrics_sheet(sheet, endpoint_count):
     sheet.freeze_panes = "A6"
 
     if endpoint_count > 0:
-        table_ref = f"A5:G{5 + endpoint_count}"
+        table_ref = f"A5:F{5 + endpoint_count}"
         table = Table(displayName="CambricsTable", ref=table_ref)
         table.tableStyleInfo = TableStyleInfo(
             name="TableStyleMedium2",
@@ -153,5 +150,5 @@ def _format_cambrics_sheet(sheet, endpoint_count):
 
 
 def _cambrics_filename(project):
-    base = slugify(f"cambrics-{project.project_id}-{project.order_number}", allow_unicode=False)
+    base = slugify(f"cambrics-{project.code}-{project.order_number}", allow_unicode=False)
     return f"{base or 'cambrics'}.xlsx"

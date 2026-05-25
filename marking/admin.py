@@ -1,26 +1,26 @@
 from django.contrib import admin
 
-from marking.models import Drawing, Project, WireColor, WireEndpoint, WireType
+from marking.models import Cabinet, Project, WireColor, WireEndpoint, WireType
 
 
 @admin.register(Project)
 class ProjectAdmin(admin.ModelAdmin):
-    list_display = ["project_id", "order_number", "name", "updated_at"]
-    search_fields = ["project_id", "order_number", "name"]
+    list_display = ["code", "order_number", "name", "updated_at"]
+    search_fields = ["code", "order_number", "name"]
 
 
-@admin.register(Drawing)
-class DrawingAdmin(admin.ModelAdmin):
-    list_display = ["dwg_id", "project", "name", "file_name", "updated_at"]
+@admin.register(Cabinet)
+class CabinetAdmin(admin.ModelAdmin):
+    list_display = ["code", "project", "name", "description", "updated_at"]
     list_filter = ["project"]
-    search_fields = ["dwg_id", "name", "file_name", "project__project_id"]
+    search_fields = ["code", "name", "description", "project__code"]
 
 
 @admin.register(WireEndpoint)
 class WireEndpointAdmin(admin.ModelAdmin):
-    list_display = ["endpoint_id", "drawing", "ref_id", "mark_1", "mark_2", "position", "sync_status"]
-    list_filter = ["sync_status", "drawing__project"]
-    search_fields = ["endpoint_id", "ref_id", "mark_1", "mark_2", "position"]
+    list_display = ["uid", "cabinet", "ref", "mark_1", "mark_2", "sync_status"]
+    list_filter = ["sync_status", "cabinet__project"]
+    search_fields = ["uid", "ref", "mark_1", "mark_2"]
 
 
 @admin.register(WireType)

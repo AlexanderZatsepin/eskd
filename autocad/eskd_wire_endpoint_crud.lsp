@@ -5,8 +5,8 @@
 ;;;
 ;;; WireEndpoint block attributes:
 ;;;   Block name: Block_Test_Marking
-;;;   ENDPOINT_ID, PROJECT_ID, ORDER_NUMBER, DWG_ID, REF_ID,
-;;;   MARK_1, MARK_2, POSITION, WIRE_TYPE, WIRE_COLOR, SYNC_STATUS
+;;;   ENDPOINT_ID, PROJECT_ID, ORDER_NUMBER, CABINET_ID, REF_ID,
+;;;   MARK_1, MARK_2, WIRE_TYPE, WIRE_COLOR, SYNC_STATUS
 ;;;   ENDPOINT_ID may be empty before the first successful sync.
 ;;;
 ;;; Commands:
@@ -16,15 +16,15 @@
 (vl-load-com)
 
 (defun eskd-wire-required-tags ()
-  '("PROJECT_ID" "ORDER_NUMBER" "DWG_ID")
+  '("PROJECT_ID" "ORDER_NUMBER" "CABINET_ID")
 )
 
 (defun eskd-wire-crud-required-tags ()
-  '("PROJECT_ID" "ORDER_NUMBER" "DWG_ID")
+  '("PROJECT_ID" "ORDER_NUMBER" "CABINET_ID")
 )
 
 (defun eskd-wire-existing-required-tags ()
-  '("ENDPOINT_ID" "PROJECT_ID" "ORDER_NUMBER" "DWG_ID")
+  '("ENDPOINT_ID" "PROJECT_ID" "ORDER_NUMBER" "CABINET_ID")
 )
 
 (defun eskd-wire-selected-entity-and-attrs (prompt / entity attrs)
@@ -46,7 +46,7 @@
     (strcat
       "/api/wire-endpoints/?project_id=" (eskd-url-encode (eskd-attr attrs "PROJECT_ID"))
       "&order_number=" (eskd-url-encode (eskd-attr attrs "ORDER_NUMBER"))
-      "&dwg_id=" (eskd-url-encode (eskd-attr attrs "DWG_ID"))
+      "&cabinet_id=" (eskd-url-encode (eskd-attr attrs "CABINET_ID"))
       "&endpoint_id=" (eskd-url-encode (eskd-attr attrs "ENDPOINT_ID"))
     )
   )
@@ -86,14 +86,13 @@
   result
 )
 
-(defun eskd-wire-body (attrs drawing-id)
+(defun eskd-wire-body (attrs cabinet-id)
   (eskd-json-object
     (list
-      (eskd-json-number "drawing" drawing-id)
+      (eskd-json-number "cabinet" cabinet-id)
       (eskd-json-string "ref_id" (eskd-attr attrs "REF_ID"))
       (eskd-json-string "mark_1" (eskd-attr attrs "MARK_1"))
       (eskd-json-string "mark_2" (eskd-attr attrs "MARK_2"))
-      (eskd-json-string "position" (eskd-attr attrs "POSITION"))
       (eskd-json-string "wire_type" (eskd-attr attrs "WIRE_TYPE"))
       (eskd-json-string "wire_color" (eskd-attr attrs "WIRE_COLOR"))
       (eskd-json-string
@@ -257,10 +256,10 @@
   (princ)
 )
 
-(defun c:ESKD_WIRE_INSERT (/ project-id order-number dwg-id mark-1 mark-2 wire-type wire-color point entity)
+(defun c:ESKD_WIRE_INSERT (/ project-id order-number cabinet-id mark-1 mark-2 wire-type wire-color point entity)
   (setq project-id (eskd-getstring-default "PROJECT_ID" (if *eskd-last-project-id* *eskd-last-project-id* "-")))
   (setq order-number (eskd-getstring-default "ORDER_NUMBER" (if *eskd-last-order-number* *eskd-last-order-number* "-")))
-  (setq dwg-id (eskd-getstring-default "DWG_ID" (if *eskd-last-dwg-id* *eskd-last-dwg-id* "-")))
+  (setq cabinet-id (eskd-getstring-default "CABINET_ID" (if *eskd-last-cabinet-id* *eskd-last-cabinet-id* "-")))
   (setq mark-1 (eskd-getstring-default "MARK_1" "-"))
   (setq mark-2 (eskd-getstring-default "MARK_2" "-"))
   (setq wire-type (eskd-getstring-default "WIRE_TYPE" "-"))
@@ -273,18 +272,17 @@
         (progn
           (setq *eskd-last-project-id* project-id)
           (setq *eskd-last-order-number* order-number)
-          (setq *eskd-last-dwg-id* dwg-id)
+          (setq *eskd-last-cabinet-id* cabinet-id)
           (eskd-set-block-attrs
             entity
             (list
               (cons "ENDPOINT_ID" "")
               (cons "PROJECT_ID" project-id)
               (cons "ORDER_NUMBER" order-number)
-              (cons "DWG_ID" dwg-id)
+              (cons "CABINET_ID" cabinet-id)
               (cons "REF_ID" "")
               (cons "MARK_1" mark-1)
               (cons "MARK_2" mark-2)
-              (cons "POSITION" "-")
               (cons "WIRE_TYPE" wire-type)
               (cons "WIRE_COLOR" wire-color)
               (cons "SYNC_STATUS" "NEW")
@@ -311,7 +309,7 @@
   (princ)
 )
 
-(defun c:ESKD_WIRE_CREATE (/ pair entity attrs drawing-id result)
+(defun c:ESKD_WIRE_CREATE (/ pair entity attrs cabinet-id result)
   (if (eskd-require-auth)
     (progn
       (setq pair (eskd-wire-selected-entity-and-attrs "\nSelect WireEndpoint block: "))
@@ -321,14 +319,14 @@
           (setq attrs (cadr pair))
           (if (eskd-require-attrs attrs (eskd-wire-crud-required-tags))
             (progn
-              (setq drawing-id (eskd-find-drawing-id attrs))
-              (if drawing-id
+              (setq cabinet-id (eskd-find-cabinet-id attrs))
+              (if cabinet-id
                 (progn
-                  (setq result (eskd-http-json "POST" (eskd-api-url "/api/wire-endpoints/") (eskd-wire-body attrs drawing-id)))
+                  (setq result (eskd-http-json "POST" (eskd-api-url "/api/wire-endpoints/") (eskd-wire-body attrs cabinet-id)))
                   (eskd-print-http-result "WireEndpoint CREATE" result)
                   (eskd-store-created-endpoint-id entity result)
                 )
-                (princ "\nParent drawing was not found. Create/sync drawing first.")
+                (princ "\nParent cabinet was not found. Create/sync cabinet first.")
               )
             )
           )
@@ -339,24 +337,24 @@
   (princ)
 )
 
-(defun c:ESKD_WIRE_UPDATE (/ attrs endpoint-id drawing-id)
+(defun c:ESKD_WIRE_UPDATE (/ attrs endpoint-id cabinet-id)
   (if (eskd-require-auth)
     (progn
       (setq attrs (eskd-wire-selected-existing-attrs))
       (if attrs
         (progn
           (setq endpoint-id (eskd-find-wire-endpoint-id attrs))
-          (setq drawing-id (eskd-find-drawing-id attrs))
+          (setq cabinet-id (eskd-find-cabinet-id attrs))
           (cond
             ((not endpoint-id) (princ "\nWireEndpoint was not found."))
-            ((not drawing-id) (princ "\nParent drawing was not found."))
+            ((not cabinet-id) (princ "\nParent cabinet was not found."))
             (T
               (eskd-print-http-result
                 "WireEndpoint UPDATE"
                 (eskd-http-json
                   "PATCH"
                   (eskd-api-url (strcat "/api/wire-endpoints/" endpoint-id "/"))
-                  (eskd-wire-body attrs drawing-id)
+                  (eskd-wire-body attrs cabinet-id)
                 )
               )
             )
@@ -389,7 +387,7 @@
   (princ)
 )
 
-(defun c:ESKD_WIRE_SYNC (/ pair entity attrs endpoint-id drawing-id result)
+(defun c:ESKD_WIRE_SYNC (/ pair entity attrs endpoint-id cabinet-id result)
   (if (eskd-require-auth)
     (progn
       (setq pair (eskd-wire-selected-entity-and-attrs "\nSelect WireEndpoint block: "))
@@ -399,8 +397,8 @@
           (setq attrs (cadr pair))
           (if (eskd-require-attrs attrs (eskd-wire-crud-required-tags))
             (progn
-              (setq drawing-id (eskd-find-drawing-id attrs))
-              (if drawing-id
+              (setq cabinet-id (eskd-find-cabinet-id attrs))
+              (if cabinet-id
                 (progn
                   (setq endpoint-id nil)
                   (if (eskd-non-empty (eskd-attr attrs "ENDPOINT_ID"))
@@ -412,17 +410,17 @@
                       (eskd-http-json
                         "PATCH"
                         (eskd-api-url (strcat "/api/wire-endpoints/" endpoint-id "/"))
-                        (eskd-wire-body attrs drawing-id)
+                        (eskd-wire-body attrs cabinet-id)
                       )
                     )
                     (progn
-                      (setq result (eskd-http-json "POST" (eskd-api-url "/api/wire-endpoints/") (eskd-wire-body attrs drawing-id)))
+                      (setq result (eskd-http-json "POST" (eskd-api-url "/api/wire-endpoints/") (eskd-wire-body attrs cabinet-id)))
                       (eskd-print-http-result "WireEndpoint SYNC create" result)
                       (eskd-store-created-endpoint-id entity result)
                     )
                   )
                 )
-                (princ "\nParent drawing was not found. Create/sync drawing first.")
+                (princ "\nParent cabinet was not found. Create/sync cabinet first.")
               )
             )
           )

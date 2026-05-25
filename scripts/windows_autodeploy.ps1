@@ -46,7 +46,7 @@ function Assert-Ready {
 
     Invoke-InProject "git" @("rev-parse", "--is-inside-work-tree")
 
-    $status = git -C $ProjectRoot status --porcelain
+    $status = git -C $ProjectRoot status --porcelain --untracked-files=no
     if ($status) {
         throw "Working tree is not clean. Commit or discard local changes before auto deploy."
     }

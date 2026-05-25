@@ -15,7 +15,7 @@ from marking.models import Cabinet, Project, WireEndpoint
 
 @login_required(login_url="/admin/login/")
 def cambrics_report(request):
-    projects = list(Project.objects.prefetch_related("cabinets").order_by("code"))
+    projects = list(Project.objects.prefetch_related("cabinets").order_by("project_code"))
     context = {
         "projects": projects,
         "cabinets_json": json.dumps(_cabinet_map(projects), ensure_ascii=False),
@@ -64,7 +64,7 @@ def _build_cambrics_response(cabinet):
     sheet = workbook.active
     sheet.title = "Кембрики"
 
-    sheet.append(["Проект", cabinet.project.code])
+    sheet.append(["Проект", cabinet.project.project_code])
     sheet.append(["Шкаф", cabinet.code])
     sheet.append(["Название", cabinet.name])
     sheet.append([])
@@ -160,5 +160,5 @@ def _format_cambrics_sheet(sheet, endpoint_count):
 
 
 def _cambrics_filename(cabinet):
-    base = slugify(f"cambrics-{cabinet.project.code}-{cabinet.code}", allow_unicode=False)
+    base = slugify(f"cambrics-{cabinet.project.project_code}-{cabinet.code}", allow_unicode=False)
     return f"{base or 'cambrics'}.xlsx"

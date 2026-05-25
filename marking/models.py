@@ -5,13 +5,14 @@ from django.db import models
 
 class Project(models.Model):
     code = models.CharField(max_length=36, blank=True)
+    project_code = models.CharField(max_length=128, unique=True)
     name = models.CharField(max_length=255)
     description = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ["code"]
+        ordering = ["project_code"]
         constraints = [
             models.UniqueConstraint(
                 fields=["code"],
@@ -20,7 +21,7 @@ class Project(models.Model):
         ]
 
     def __str__(self):
-        return f"{self.code} - {self.name}"
+        return f"{self.project_code} - {self.name}"
 
     def save(self, *args, **kwargs):
         if not self.code:
@@ -44,7 +45,7 @@ class Cabinet(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ["project__code", "code"]
+        ordering = ["project__project_code", "code"]
         constraints = [
             models.UniqueConstraint(
                 fields=["project", "code"],
@@ -53,7 +54,7 @@ class Cabinet(models.Model):
         ]
 
     def __str__(self):
-        return f"{self.project.code} / {self.code}"
+        return f"{self.project.project_code} / {self.code}"
 
     def save(self, *args, **kwargs):
         if not self.code:
@@ -129,7 +130,7 @@ class WireEndpoint(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ["cabinet__project__code", "cabinet__code", "mark_1", "ref"]
+        ordering = ["cabinet__project__project_code", "cabinet__code", "mark_1", "ref"]
         indexes = [
             models.Index(fields=["ref"]),
             models.Index(fields=["sync_status"]),

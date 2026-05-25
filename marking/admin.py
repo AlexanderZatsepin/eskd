@@ -5,15 +5,15 @@ from marking.models import Cabinet, Project, WireColor, WireEndpoint, WireType
 
 @admin.register(Project)
 class ProjectAdmin(admin.ModelAdmin):
-    list_display = ["code", "name", "updated_at"]
-    search_fields = ["code", "name"]
+    list_display = ["project_code", "code", "name", "updated_at"]
+    search_fields = ["project_code", "code", "name"]
 
 
 @admin.register(Cabinet)
 class CabinetAdmin(admin.ModelAdmin):
     list_display = ["code", "project", "name", "description", "updated_at"]
     list_filter = ["project"]
-    search_fields = ["code", "name", "description", "project__code"]
+    search_fields = ["code", "name", "description", "project__code", "project__project_code"]
 
 
 @admin.register(WireEndpoint)

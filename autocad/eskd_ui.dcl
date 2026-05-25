@@ -16,6 +16,7 @@ eskd_main : dialog {
       : text { label = "UUID проекта:"; width = 20; }
       : text { key = "project_id"; label = ""; width = 40; }
     }
+    : edit_box { key = "project_code"; label = "Шифр проекта"; edit_width = 28; }
     : edit_box { key = "project_name"; label = "Название проекта"; edit_width = 28; }
     : edit_box { key = "project_description"; label = "Описание проекта"; edit_width = 28; }
     : row {
@@ -26,6 +27,7 @@ eskd_main : dialog {
     : edit_box { key = "cabinet_description"; label = "Описание шкафа"; edit_width = 28; }
     : row {
       : button { key = "context_save"; label = "Запомнить"; width = 18; }
+      : button { key = "project_find"; label = "Найти проект"; width = 18; }
       : button { key = "project_sync"; label = "Сохранить проект"; width = 20; }
       : button { key = "cabinet_sync"; label = "Сохранить шкаф"; width = 20; }
     }

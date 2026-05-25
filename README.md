@@ -15,14 +15,15 @@
 
 ### Project
 
-- `project_id` - UUID проекта, генерируется сервером
+- `project_id` - UUID проекта, генерируется сервером и не вводится вручную
+- `project_code` - шифр проекта, вводится пользователем, уникален
 - `name` - название проекта
 - `description` - описание
 
 ### Cabinet
 
 - `project` - ссылка на проект
-- `cabinet_id` - UUID шкафа, генерируется сервером
+- `cabinet_id` - UUID шкафа, генерируется сервером и не вводится вручную
 - `name` - название шкафа
 - `description` - описание
 
@@ -65,9 +66,12 @@ Invoke-RestMethod `
 Фильтры:
 
 - `/api/projects/?project_id=<uuid>`
+- `/api/projects/?project_code=<project-code>`
 - `/api/cabinets/?project_id=<uuid>`
+- `/api/cabinets/?project_code=<project-code>`
 - `/api/cabinets/?project_id=<uuid>&cabinet_id=<uuid>`
 - `/api/wire-endpoints/?project_id=<uuid>`
+- `/api/wire-endpoints/?project_code=<project-code>`
 - `/api/wire-endpoints/?cabinet_id=<uuid>`
 - `/api/wire-endpoints/?ref_id=<uuid>`
 - `/api/wire-endpoints/?mark_1=K1:14`
@@ -127,7 +131,9 @@ APPLOAD -> autocad/eskd_ui.lsp
 ESKD
 ```
 
-Проект и шкаф создаются через панель. Пользователь вводит только названия и описания. `PROJECT_ID` и `CABINET_ID` генерируются сервером как UUID и показываются в панели после сохранения.
+Проект создается или выбирается через панель. Пользователь вводит `Шифр проекта`, название и описание. Если проект с таким шифром уже есть на сервере, команда `Сохранить проект` не создает дубль, а выбирает существующий проект и возвращает его `PROJECT_ID`.
+
+Шкаф создается через панель после выбора проекта. `PROJECT_ID` и `CABINET_ID` генерируются сервером как UUID и показываются в панели после сохранения.
 
 В чертеже нужен только блок маркировки:
 

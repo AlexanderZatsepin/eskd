@@ -80,7 +80,7 @@
     <select id="project_id">
       <option value="">Выберите проект</option>
       {% for project in projects %}
-        <option value="{{ project.id }}">{{ project.code }}{% if project.name %} - {{ project.name }}{% endif %}</option>
+        <option value="{{ project.id }}">{{ project.project_code }}{% if project.name %} - {{ project.name }}{% endif %}</option>
       {% endfor %}
     </select>
 

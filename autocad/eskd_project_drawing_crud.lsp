@@ -3,7 +3,7 @@
 ;;;
 ;;; Commands:
 ;;;   ESKD_CONTEXT_SET, ESKD_CONTEXT_STATUS
-;;;   ESKD_PROJECT_GET, ESKD_PROJECT_CREATE, ESKD_PROJECT_UPDATE, ESKD_PROJECT_DELETE, ESKD_PROJECT_SYNC
+;;;   ESKD_PROJECT_GET, ESKD_PROJECT_FIND, ESKD_PROJECT_CREATE, ESKD_PROJECT_UPDATE, ESKD_PROJECT_DELETE, ESKD_PROJECT_SYNC
 ;;;   ESKD_CABINET_GET, ESKD_CABINET_CREATE, ESKD_CABINET_UPDATE, ESKD_CABINET_DELETE, ESKD_CABINET_SYNC
 
 (vl-load-com)
@@ -13,6 +13,7 @@
 (setq *eskd-marking-block-name* "BLOCK_TEST_MARKING")
 
 (if (not *eskd-current-project-id*) (setq *eskd-current-project-id* ""))
+(if (not *eskd-current-project-code*) (setq *eskd-current-project-code* ""))
 (if (not *eskd-current-project-name*) (setq *eskd-current-project-name* ""))
 (if (not *eskd-current-project-description*) (setq *eskd-current-project-description* ""))
 (if (not *eskd-current-cabinet-id*) (setq *eskd-current-cabinet-id* ""))
@@ -223,11 +224,26 @@
   ok
 )
 
-(defun eskd-project-query-url (attrs)
+(defun eskd-project-id-query-url (attrs)
   (eskd-api-url
     (strcat
       "/api/projects/?project_id=" (eskd-url-encode (eskd-attr attrs "PROJECT_ID"))
     )
+  )
+)
+
+(defun eskd-project-code-query-url (attrs)
+  (eskd-api-url
+    (strcat
+      "/api/projects/?project_code=" (eskd-url-encode (eskd-attr attrs "PROJECT_CODE"))
+    )
+  )
+)
+
+(defun eskd-project-query-url (attrs)
+  (if (eskd-non-empty (eskd-attr attrs "PROJECT_ID"))
+    (eskd-project-id-query-url attrs)
+    (eskd-project-code-query-url attrs)
   )
 )
 
@@ -275,6 +291,7 @@
 (defun eskd-project-body (attrs)
   (eskd-json-object
     (list
+      (eskd-json-string "project_code" (eskd-attr attrs "PROJECT_CODE"))
       (eskd-json-string "name" (eskd-attr attrs "PROJECT_NAME"))
       (eskd-json-string "description" (eskd-attr attrs "DESCRIPTION"))
     )
@@ -304,6 +321,7 @@
 (defun eskd-current-project-attrs ()
   (list
     (cons "PROJECT_ID" *eskd-current-project-id*)
+    (cons "PROJECT_CODE" *eskd-current-project-code*)
     (cons "PROJECT_NAME" *eskd-current-project-name*)
     (cons "DESCRIPTION" *eskd-current-project-description*)
   )
@@ -328,6 +346,20 @@
   (eskd-non-empty *eskd-current-project-name*)
 )
 
+(defun eskd-context-has-project-code ()
+  (eskd-non-empty *eskd-current-project-code*)
+)
+
+(defun eskd-set-current-project-code (project-code)
+  (if (/= project-code *eskd-current-project-code*)
+    (progn
+      (setq *eskd-current-project-id* "")
+      (setq *eskd-current-cabinet-id* "")
+    )
+  )
+  (setq *eskd-current-project-code* project-code)
+)
+
 (defun eskd-context-has-cabinet ()
   (and
     (eskd-context-has-project)
@@ -344,6 +376,16 @@
     T
     (progn
       (princ "\nВведите название проекта.")
+      nil
+    )
+  )
+)
+
+(defun eskd-require-project-code ()
+  (if (eskd-context-has-project-code)
+    T
+    (progn
+      (princ "\nВведите шифр проекта.")
       nil
     )
   )
@@ -384,6 +426,7 @@
     (strcat
       "\nCurrent ESKD context:"
       "\n  PROJECT_ID: " *eskd-current-project-id*
+      "\n  PROJECT_CODE: " *eskd-current-project-code*
       "\n  PROJECT_NAME: " *eskd-current-project-name*
       "\n  CABINET_ID: " *eskd-current-cabinet-id*
       "\n  CABINET_NAME: " *eskd-current-cabinet-name*
@@ -391,17 +434,29 @@
   )
 )
 
-(defun eskd-store-current-project-id (result / status response project-id)
+(defun eskd-store-current-project-id (result / status response project-id project-code project-name project-description)
   (setq status (car result))
   (setq response (cadr result))
   (if (and (>= status 200) (< status 300))
     (progn
       (setq project-id (eskd-json-token-value response "project_id"))
+      (setq project-code (eskd-json-token-value response "project_code"))
+      (setq project-name (eskd-json-token-value response "name"))
+      (setq project-description (eskd-json-token-value response "description"))
       (if (eskd-non-empty project-id)
         (progn
           (setq *eskd-current-project-id* project-id)
           (princ (strcat "\nPROJECT_ID: " project-id))
         )
+      )
+      (if (eskd-non-empty project-code)
+        (setq *eskd-current-project-code* project-code)
+      )
+      (if (eskd-non-empty project-name)
+        (setq *eskd-current-project-name* project-name)
+      )
+      (if (eskd-non-empty project-description)
+        (setq *eskd-current-project-description* project-description)
       )
     )
   )
@@ -434,6 +489,7 @@
 )
 
 (defun c:ESKD_CONTEXT_SET ()
+  (eskd-set-current-project-code (eskd-getstring-default "PROJECT_CODE" *eskd-current-project-code*))
   (setq *eskd-current-project-name* (eskd-getstring-default "PROJECT_NAME" *eskd-current-project-name*))
   (setq *eskd-current-project-description* (eskd-getstring-default "PROJECT_DESCRIPTION" *eskd-current-project-description*))
   (setq *eskd-current-cabinet-name* (eskd-getstring-default "CABINET_NAME" *eskd-current-cabinet-name*))
@@ -450,10 +506,33 @@
 (defun c:ESKD_PROJECT_GET (/ attrs result)
   (if (eskd-require-auth)
     (progn
-      (if (eskd-require-project-context)
+      (if (or (eskd-context-has-project) (eskd-require-project-code))
         (progn
           (setq attrs (eskd-current-project-attrs))
-        (eskd-print-http-result "Project GET" (eskd-http-json "GET" (eskd-project-query-url attrs) nil))
+          (setq result (eskd-print-http-result "Project GET" (eskd-http-json "GET" (eskd-project-query-url attrs) nil)))
+          (eskd-store-current-project-id result)
+        )
+      )
+    )
+  )
+  (princ)
+)
+
+(defun c:ESKD_PROJECT_FIND (/ attrs result id)
+  (if (eskd-require-auth)
+    (progn
+      (if (eskd-require-project-code)
+        (progn
+          (setq attrs (eskd-current-project-attrs))
+          (setq result (eskd-print-http-result "Project FIND" (eskd-http-json "GET" (eskd-project-code-query-url attrs) nil)))
+          (setq id (eskd-json-number-value (cadr result) "id"))
+          (if id
+            (progn
+              (eskd-store-current-project-id result)
+              (princ "\nПроект найден и выбран.")
+            )
+            (princ "\nПроект с таким шифром не найден.")
+          )
         )
       )
     )
@@ -464,7 +543,7 @@
 (defun c:ESKD_PROJECT_CREATE (/ attrs result)
   (if (eskd-require-auth)
     (progn
-      (if (eskd-require-project-name)
+      (if (and (eskd-require-project-code) (eskd-require-project-name))
         (progn
           (setq attrs (eskd-current-project-attrs))
           (setq result
@@ -530,28 +609,39 @@
 (defun c:ESKD_PROJECT_SYNC (/ attrs id)
   (if (eskd-require-auth)
     (progn
-      (if (eskd-require-project-name)
+      (if (eskd-require-project-code)
         (progn
           (setq attrs (eskd-current-project-attrs))
           (setq id nil)
           (if (eskd-context-has-project)
             (setq id (eskd-find-project-id attrs))
+            (setq id (eskd-find-project-id attrs))
           )
           (if id
-            (eskd-store-current-project-id
-              (eskd-print-http-result
-                "Project SYNC update"
-                (eskd-http-json
-                  "PATCH"
-                  (eskd-api-url (strcat "/api/projects/" (itoa id) "/"))
-                  (eskd-project-body attrs)
+            (if (eskd-context-has-project)
+              (eskd-store-current-project-id
+                (eskd-print-http-result
+                  "Project SYNC update"
+                  (eskd-http-json
+                    "PATCH"
+                    (eskd-api-url (strcat "/api/projects/" (itoa id) "/"))
+                    (eskd-project-body attrs)
+                  )
                 )
               )
+              (progn
+                (eskd-store-current-project-id
+                  (eskd-print-http-result "Project SYNC found" (eskd-http-json "GET" (eskd-project-code-query-url attrs) nil))
+                )
+                (princ "\nПроект уже есть на сервере, выбран существующий.")
+              )
             )
-            (eskd-store-current-project-id
-              (eskd-print-http-result
-                "Project SYNC create"
-                (eskd-http-json "POST" (eskd-api-url "/api/projects/") (eskd-project-body attrs))
+            (if (eskd-require-project-name)
+              (eskd-store-current-project-id
+                (eskd-print-http-result
+                  "Project SYNC create"
+                  (eskd-http-json "POST" (eskd-api-url "/api/projects/") (eskd-project-body attrs))
+                )
               )
             )
           )

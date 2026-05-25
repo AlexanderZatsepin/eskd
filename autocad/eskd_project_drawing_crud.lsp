@@ -431,14 +431,13 @@
   )
 )
 
-(defun eskd-store-current-project-id (result / status response project-id project-code project-name)
+(defun eskd-store-current-project-id (result / status response project-id project-code)
   (setq status (car result))
   (setq response (cadr result))
   (if (and (>= status 200) (< status 300))
     (progn
       (setq project-id (eskd-json-token-value response "project_id"))
       (setq project-code (eskd-json-token-value response "project_code"))
-      (setq project-name (eskd-json-token-value response "name"))
       (if (eskd-non-empty project-id)
         (progn
           (setq *eskd-current-project-id* project-id)
@@ -447,9 +446,6 @@
       )
       (if (eskd-non-empty project-code)
         (setq *eskd-current-project-code* project-code)
-      )
-      (if (eskd-non-empty project-name)
-        (setq *eskd-current-project-name* project-name)
       )
     )
   )

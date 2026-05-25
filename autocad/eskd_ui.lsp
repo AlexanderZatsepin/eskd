@@ -42,12 +42,35 @@
   (setq *eskd-current-cabinet-description* (get_tile "cabinet_description"))
 )
 
-(defun c:ESKD (/ dcl-path dcl-id action)
+(defun eskd-ui-run-action (action)
+  (cond
+    ((= action "login") (c:ESKD_LOGIN))
+    ((= action "status") (c:ESKD_STATUS))
+    ((= action "logout") (c:ESKD_LOGOUT))
+    ((= action "context_save") (c:ESKD_CONTEXT_STATUS))
+    ((= action "project_find") (c:ESKD_PROJECT_FIND))
+    ((= action "project_sync") (c:ESKD_PROJECT_SYNC))
+    ((= action "cabinet_sync") (c:ESKD_CABINET_SYNC))
+    ((= action "wire_sync") (c:ESKD_WIRE_SYNC))
+    ((= action "wire_insert") (c:ESKD_WIRE_INSERT))
+    ((= action "wire_link") (c:ESKD_WIRE_LINK_REF))
+    ((= action "wire_clear") (c:ESKD_WIRE_CLEAR_REF))
+    ((= action "cambrics_report")
+      (if *eskd-server-url*
+        (eskd-ui-open-url (strcat (eskd-trim-right-slash *eskd-server-url*) "/reports/cambrics/"))
+        (princ "\nАдрес сервера ESKD не задан. Сначала выполните вход.")
+      )
+    )
+    (T nil)
+  )
+)
+
+(defun eskd-ui-show-dialog (/ dcl-path dcl-id action)
   (setq dcl-path (eskd-ui-dcl-path))
   (if (not dcl-path)
     (progn
       (princ "\nНе найден eskd_ui.dcl. Добавьте папку autocad в Support File Search Path или загружайте LISP из этой папки.")
-      (princ)
+      nil
     )
     (progn
       (setq dcl-id (load_dialog dcl-path))
@@ -55,6 +78,7 @@
         (progn
           (unload_dialog dcl-id)
           (princ "\nНе удалось открыть окно ESKD.")
+          nil
         )
         (progn
           (setq action nil)
@@ -76,33 +100,23 @@
 
           (start_dialog)
           (unload_dialog dcl-id)
-
-          (cond
-            ((= action "login") (c:ESKD_LOGIN))
-            ((= action "status") (c:ESKD_STATUS))
-            ((= action "logout") (c:ESKD_LOGOUT))
-            ((= action "context_save") (c:ESKD_CONTEXT_STATUS))
-            ((= action "project_find") (c:ESKD_PROJECT_FIND))
-            ((= action "project_sync") (c:ESKD_PROJECT_SYNC))
-            ((= action "cabinet_sync") (c:ESKD_CABINET_SYNC))
-            ((= action "wire_sync") (c:ESKD_WIRE_SYNC))
-            ((= action "wire_insert") (c:ESKD_WIRE_INSERT))
-            ((= action "wire_link") (c:ESKD_WIRE_LINK_REF))
-            ((= action "wire_clear") (c:ESKD_WIRE_CLEAR_REF))
-            ((= action "cambrics_report")
-              (if *eskd-server-url*
-                (eskd-ui-open-url (strcat (eskd-trim-right-slash *eskd-server-url*) "/reports/cambrics/"))
-                (princ "\nАдрес сервера ESKD не задан. Сначала выполните вход.")
-              )
-            )
-            (T nil)
-          )
+          action
         )
       )
     )
   )
-  (princ)
 )
 
+(defun c:ESKD (/ action keep-open)
+  (setq keep-open T)
+  (while keep-open
+    (setq action (eskd-ui-show-dialog))
+    (if (or (not action) (= action "close"))
+      (setq keep-open nil)
+      (eskd-ui-run-action action)
+    )
+  )
+  (princ)
+)
 (princ "\nИнтерфейс ESKD загружен. Команда: ESKD.")
 (princ)

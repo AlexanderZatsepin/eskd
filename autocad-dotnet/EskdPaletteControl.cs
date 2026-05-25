@@ -160,11 +160,16 @@ namespace Eskd.AutoCAD
             var linkButtons = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true };
             linkButtons.Controls.Add(Button("Связать", OnLinkMarkings));
             linkButtons.Controls.Add(Button("Очистить связь", OnClearRef));
+            linkButtons.Controls.Add(Button("Очистить связи выбранным", OnClearSelectedRefs));
 
             var copyButtons = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true };
             copyButtons.Controls.Add(Button("Копировать маркировки", OnCopyMarkings));
             copyButtons.Controls.Add(Button("Переоформить ID выбранным", OnReissueSelectedIds));
             copyButtons.Controls.Add(Button("Перенести в выбранный шкаф", OnMoveSelectedToCabinet));
+
+            var editButtons = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true };
+            editButtons.Controls.Add(Button("Очистить маркировку", OnClearSelectedMarks));
+            editButtons.Controls.Add(Button("Удалить маркировку", OnDeleteSelectedMarkings));
 
             var createButtons = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true };
             createButtons.Controls.Add(Button("Добавить блок маркировки", OnInsertMarking));
@@ -173,6 +178,7 @@ namespace Eskd.AutoCAD
             content.Controls.Add(Row(Label("MARK_1"), _mark1));
             content.Controls.Add(Row(Label("MARK_2"), _mark2));
             content.Controls.Add(createButtons);
+            content.Controls.Add(editButtons);
             content.Controls.Add(copyButtons);
             content.Controls.Add(linkButtons);
             content.Controls.Add(Row(Label("Тип"), _wireTypes));
@@ -351,6 +357,56 @@ namespace Eskd.AutoCAD
                 var patch = _blocks.ClearSelectedRef(_selectedProject, _selectedCabinet);
                 PatchEndpoint(patch);
                 MessageBox.Show("Связь очищена.", "ESKD", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            });
+        }
+
+        private void OnClearSelectedRefs(object sender, EventArgs eventArgs)
+        {
+            RunUi(() =>
+            {
+                RequireProject();
+                RequireCabinet();
+                var patches = _blocks.ClearRefsInSelectedBlocks(_selectedProject, _selectedCabinet);
+                PatchEndpoints(patches);
+                MessageBox.Show("Очищено связей: " + patches.Count, "ESKD", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            });
+        }
+
+        private void OnClearSelectedMarks(object sender, EventArgs eventArgs)
+        {
+            RunUi(() =>
+            {
+                RequireProject();
+                RequireCabinet();
+                var patches = _blocks.ClearMarksInSelectedBlocks(_selectedProject, _selectedCabinet);
+                PatchEndpoints(patches);
+                _mark1.Text = "-";
+                _mark2.Text = "-";
+                MessageBox.Show("Очищено маркировок: " + patches.Count, "ESKD", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            });
+        }
+
+        private void OnDeleteSelectedMarkings(object sender, EventArgs eventArgs)
+        {
+            RunUi(() =>
+            {
+                RequireProject();
+                RequireCabinet();
+                if (MessageBox.Show(
+                    "Удалить выбранные маркировки из чертежа и БД?",
+                    "ESKD",
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Warning) != DialogResult.Yes)
+                {
+                    return;
+                }
+
+                var endpointIds = _blocks.DeleteSelectedMarkings(_selectedProject, _selectedCabinet);
+                foreach (var endpointId in endpointIds)
+                {
+                    _api.DeleteEndpoint(endpointId);
+                }
+                MessageBox.Show("Удалено маркировок: " + endpointIds.Count, "ESKD", MessageBoxButtons.OK, MessageBoxIcon.Information);
             });
         }
 

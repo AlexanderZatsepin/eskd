@@ -258,6 +258,21 @@ namespace Eskd.AutoCAD
                 true);
         }
 
+        public void DeleteEndpoint(string endpointId)
+        {
+            if (string.IsNullOrWhiteSpace(endpointId))
+            {
+                return;
+            }
+
+            Request(
+                "DELETE",
+                "/api/wire-endpoints/" + Uri.EscapeDataString(endpointId) + "/",
+                null,
+                null,
+                true);
+        }
+
         public DrawingCheckResult CheckDrawing(string cabinetId, List<string> endpointIds, List<string> emptyHandles)
         {
             var payload = _json.Serialize(new Dictionary<string, object>
@@ -356,7 +371,12 @@ namespace Eskd.AutoCAD
                 using (var stream = response.GetResponseStream())
                 using (var reader = new StreamReader(stream, Encoding.UTF8))
                 {
-                    return _json.Deserialize<Dictionary<string, object>>(reader.ReadToEnd());
+                    var text = reader.ReadToEnd();
+                    if (string.IsNullOrWhiteSpace(text))
+                    {
+                        return new Dictionary<string, object>();
+                    }
+                    return _json.Deserialize<Dictionary<string, object>>(text);
                 }
             }
             catch (WebException ex)

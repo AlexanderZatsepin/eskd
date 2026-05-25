@@ -325,6 +325,140 @@ namespace Eskd.AutoCAD
             }
         }
 
+        public List<EndpointPatch> ClearRefsInSelectedBlocks(EskdProject project, EskdCabinet cabinet)
+        {
+            var result = new List<EndpointPatch>();
+            var document = Application.DocumentManager.MdiActiveDocument;
+            var database = document.Database;
+            var editor = document.Editor;
+
+            var selection = editor.GetSelection(new SelectionFilter(new[] { new TypedValue(0, "INSERT") }));
+            if (selection.Status != PromptStatus.OK)
+            {
+                throw new OperationCanceledException("Выбор блоков отменен.");
+            }
+
+            using (document.LockDocument())
+            using (var transaction = database.TransactionManager.StartTransaction())
+            {
+                var markings = SelectedContextMarkings(selection.Value, transaction, project, cabinet);
+                if (markings.Count == 0)
+                {
+                    throw new InvalidOperationException("В выборе нет маркировок выбранного проекта и шкафа.");
+                }
+
+                foreach (var marking in markings)
+                {
+                    var endpointId = Attr(marking.Attributes, "ENDPOINT_ID");
+                    var reference = (BlockReference)transaction.GetObject(marking.ObjectId, OpenMode.ForRead);
+                    SetAttributes(reference, transaction, new Dictionary<string, string>
+                    {
+                        {"REF_ID", string.Empty},
+                        {"SYNC_STATUS", "DIRTY"}
+                    });
+                    result.Add(new EndpointPatch
+                    {
+                        EndpointId = endpointId,
+                        RefId = string.Empty,
+                        SyncStatus = "DIRTY"
+                    });
+                }
+
+                transaction.Commit();
+            }
+
+            return result;
+        }
+
+        public List<EndpointPatch> ClearMarksInSelectedBlocks(EskdProject project, EskdCabinet cabinet)
+        {
+            var result = new List<EndpointPatch>();
+            var document = Application.DocumentManager.MdiActiveDocument;
+            var database = document.Database;
+            var editor = document.Editor;
+
+            var selection = editor.GetSelection(new SelectionFilter(new[] { new TypedValue(0, "INSERT") }));
+            if (selection.Status != PromptStatus.OK)
+            {
+                throw new OperationCanceledException("Выбор блоков отменен.");
+            }
+
+            using (document.LockDocument())
+            using (var transaction = database.TransactionManager.StartTransaction())
+            {
+                var markings = SelectedContextMarkings(selection.Value, transaction, project, cabinet);
+                if (markings.Count == 0)
+                {
+                    throw new InvalidOperationException("В выборе нет маркировок выбранного проекта и шкафа.");
+                }
+
+                foreach (var marking in markings)
+                {
+                    var endpointId = Attr(marking.Attributes, "ENDPOINT_ID");
+                    var reference = (BlockReference)transaction.GetObject(marking.ObjectId, OpenMode.ForRead);
+                    SetAttributes(reference, transaction, new Dictionary<string, string>
+                    {
+                        {"REF_ID", string.Empty},
+                        {"MARK_1", "-"},
+                        {"MARK_2", "-"},
+                        {"SYNC_STATUS", "DIRTY"}
+                    });
+                    result.Add(new EndpointPatch
+                    {
+                        EndpointId = endpointId,
+                        RefId = string.Empty,
+                        Mark1 = "-",
+                        Mark2 = "-",
+                        SyncStatus = "DIRTY"
+                    });
+                }
+
+                transaction.Commit();
+            }
+
+            return result;
+        }
+
+        public List<string> DeleteSelectedMarkings(EskdProject project, EskdCabinet cabinet)
+        {
+            var result = new List<string>();
+            var document = Application.DocumentManager.MdiActiveDocument;
+            var database = document.Database;
+            var editor = document.Editor;
+
+            var selection = editor.GetSelection(new SelectionFilter(new[] { new TypedValue(0, "INSERT") }));
+            if (selection.Status != PromptStatus.OK)
+            {
+                throw new OperationCanceledException("Выбор блоков отменен.");
+            }
+
+            using (document.LockDocument())
+            using (var transaction = database.TransactionManager.StartTransaction())
+            {
+                var markings = SelectedContextMarkings(selection.Value, transaction, project, cabinet);
+                if (markings.Count == 0)
+                {
+                    throw new InvalidOperationException("В выборе нет маркировок выбранного проекта и шкафа.");
+                }
+
+                foreach (var marking in markings)
+                {
+                    var endpointId = Attr(marking.Attributes, "ENDPOINT_ID");
+                    if (!string.IsNullOrWhiteSpace(endpointId))
+                    {
+                        result.Add(endpointId);
+                    }
+
+                    var reference = (BlockReference)transaction.GetObject(marking.ObjectId, OpenMode.ForWrite);
+                    reference.Erase();
+                }
+
+                transaction.Commit();
+            }
+
+            return result;
+        }
+
         public EditableMarkingBlock PromptMarkingForEdit(EskdProject project, EskdCabinet cabinet)
         {
             var document = Application.DocumentManager.MdiActiveDocument;

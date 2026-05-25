@@ -51,11 +51,13 @@ def _build_cambrics_response(cabinet):
     endpoints = list(
         WireEndpoint.objects.select_related("cabinet", "wire_type", "wire_color")
         .filter(cabinet=cabinet)
-        .order_by("wire_color__name", "wire_type__name", "ref", "mark_1", "mark_2")
+        .order_by("wire_color__name", "wire_type__name", "ref", "created_at", "uid")
     )
 
     columns = defaultdict(lambda: defaultdict(list))
     for endpoint in endpoints:
+        if not _endpoint_has_mark(endpoint):
+            continue
         columns[_wire_column_label(endpoint)][_ref_group_key(endpoint)].append(endpoint)
 
     workbook = Workbook()
@@ -78,11 +80,15 @@ def _build_cambrics_response(cabinet):
         for ref_id in sorted(columns[label].keys()):
             group = sorted(
                 columns[label][ref_id],
-                key=lambda item: (item.mark_1, item.mark_2, str(item.uid)),
+                key=lambda item: (item.created_at, str(item.uid)),
             )
+            mark_labels = _group_mark_labels(group)
+            if not mark_labels:
+                continue
+
             start_row = row
-            for endpoint in group:
-                sheet.cell(row=row, column=column_index, value=_endpoint_mark(endpoint))
+            for mark_label in mark_labels:
+                sheet.cell(row=row, column=column_index, value=mark_label)
                 row += 1
             end_row = row - 1
             if start_row <= end_row:
@@ -115,10 +121,34 @@ def _ref_group_key(endpoint):
     return endpoint.ref or f"NO_REF:{endpoint.uid}"
 
 
-def _endpoint_mark(endpoint):
-    if endpoint.mark_2 and endpoint.mark_2 != "-":
-        return f"{endpoint.mark_1} / {endpoint.mark_2}"
-    return endpoint.mark_1
+def _endpoint_has_mark(endpoint):
+    return _has_mark_value(endpoint.mark_1) or _has_mark_value(endpoint.mark_2)
+
+
+def _group_mark_labels(endpoints):
+    labels = []
+    seen = set()
+    for endpoint in endpoints:
+        _append_mark_label(labels, seen, endpoint.mark_1)
+
+    if len(labels) < 2:
+        for endpoint in endpoints:
+            _append_mark_label(labels, seen, endpoint.mark_2)
+
+    return labels
+
+
+def _append_mark_label(labels, seen, value):
+    mark = (value or "").strip()
+    if not _has_mark_value(mark) or mark in seen:
+        return
+    labels.append(mark)
+    seen.add(mark)
+
+
+def _has_mark_value(value):
+    mark = (value or "").strip()
+    return bool(mark) and mark != "-"
 
 
 def _format_cambrics_sheet(sheet, column_labels, group_ranges, max_row):

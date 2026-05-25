@@ -39,12 +39,13 @@ def _build_cambrics_response(project):
     endpoints = list(
         WireEndpoint.objects.select_related("drawing")
         .filter(drawing__project=project)
-        .order_by("drawing__dwg_id", "mark", "ref_id")
+        .order_by("drawing__dwg_id", "mark_1", "ref_id")
     )
 
     by_ref_id = defaultdict(list)
     for endpoint in endpoints:
-        by_ref_id[endpoint.ref_id].append(endpoint)
+        if endpoint.ref_id:
+            by_ref_id[endpoint.ref_id].append(endpoint)
 
     workbook = Workbook()
     sheet = workbook.active
@@ -69,7 +70,7 @@ def _build_cambrics_response(project):
     for endpoint in endpoints:
         linked = [
             other
-            for other in by_ref_id[endpoint.ref_id]
+            for other in by_ref_id.get(endpoint.ref_id, [])
             if other.endpoint_id != endpoint.endpoint_id
         ]
         linked_marks = ", ".join(_endpoint_label(item) for item in linked)
@@ -77,12 +78,12 @@ def _build_cambrics_response(project):
         sheet.append(
             [
                 endpoint.drawing.dwg_id,
-                endpoint.mark,
+                endpoint.mark_1,
                 linked_marks,
                 endpoint.ref_id,
                 endpoint.position,
-                endpoint.wire_type,
-                endpoint.wire_color,
+                endpoint.wire_type.name if endpoint.wire_type else "-",
+                endpoint.wire_color.name if endpoint.wire_color else "-",
             ]
         )
 
@@ -102,7 +103,7 @@ def _build_cambrics_response(project):
 
 
 def _endpoint_label(endpoint):
-    return f"{endpoint.mark} ({endpoint.drawing.dwg_id})"
+    return f"{endpoint.mark_1} ({endpoint.drawing.dwg_id})"
 
 
 def _format_cambrics_sheet(sheet, endpoint_count):
@@ -124,7 +125,7 @@ def _format_cambrics_sheet(sheet, endpoint_count):
         "A": 18,
         "B": 24,
         "C": 34,
-        "D": 24,
+        "D": 40,
         "E": 14,
         "F": 18,
         "G": 12,

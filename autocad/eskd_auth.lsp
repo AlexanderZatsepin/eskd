@@ -7,6 +7,7 @@
 (setq *eskd-server-url* nil)
 (setq *eskd-username* nil)
 (setq *eskd-token* nil)
+(setq *eskd-default-server-url* "http://172.16.51.49:8010")
 
 (defun eskd-trim-right-slash (value / len)
   (if (and value (> (strlen value) 0))
@@ -107,7 +108,7 @@
   (setq default-url
     (if *eskd-server-url*
       *eskd-server-url*
-      "http://127.0.0.1:8000"
+      *eskd-default-server-url*
     )
   )
   (setq server-url (getstring T (strcat "\nESKD server URL <" default-url ">: ")))

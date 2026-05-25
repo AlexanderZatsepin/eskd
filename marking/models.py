@@ -45,6 +45,32 @@ class Drawing(models.Model):
         return f"{self.project.project_id} / {self.dwg_id}"
 
 
+class WireType(models.Model):
+    name = models.CharField(max_length=64, unique=True)
+    description = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+
+class WireColor(models.Model):
+    name = models.CharField(max_length=32, unique=True)
+    description = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+
 class WireEndpoint(models.Model):
     class SyncStatus(models.TextChoices):
         NEW = "NEW", "New"
@@ -52,13 +78,26 @@ class WireEndpoint(models.Model):
         DIRTY = "DIRTY", "Dirty"
         ERROR = "ERROR", "Error"
 
-    endpoint_id = models.CharField(max_length=32, primary_key=True, blank=True)
+    endpoint_id = models.CharField(max_length=36, primary_key=True, blank=True)
     drawing = models.ForeignKey(Drawing, on_delete=models.CASCADE, related_name="wire_endpoints")
-    ref_id = models.CharField(max_length=64, blank=True)
-    mark = models.CharField(max_length=128, blank=True)
+    ref_id = models.CharField(max_length=36, blank=True)
+    mark_1 = models.CharField(max_length=128, default="-", blank=True)
+    mark_2 = models.CharField(max_length=128, default="-", blank=True)
     position = models.CharField(max_length=64, blank=True)
-    wire_type = models.CharField(max_length=64, blank=True)
-    wire_color = models.CharField(max_length=32, blank=True)
+    wire_type = models.ForeignKey(
+        WireType,
+        on_delete=models.PROTECT,
+        related_name="wire_endpoints",
+        null=True,
+        blank=True,
+    )
+    wire_color = models.ForeignKey(
+        WireColor,
+        on_delete=models.PROTECT,
+        related_name="wire_endpoints",
+        null=True,
+        blank=True,
+    )
     sync_status = models.CharField(
         max_length=16,
         choices=SyncStatus.choices,
@@ -68,14 +107,14 @@ class WireEndpoint(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ["drawing__project__project_id", "drawing__dwg_id", "ref_id", "mark"]
+        ordering = ["drawing__project__project_id", "drawing__dwg_id", "mark_1", "ref_id"]
         indexes = [
             models.Index(fields=["ref_id"]),
             models.Index(fields=["sync_status"]),
         ]
 
     def __str__(self):
-        return f"{self.endpoint_id}: {self.mark}"
+        return f"{self.endpoint_id}: {self.mark_1}"
 
     def save(self, *args, **kwargs):
         if not self.endpoint_id:
@@ -85,6 +124,6 @@ class WireEndpoint(models.Model):
     @classmethod
     def _generate_endpoint_id(cls):
         while True:
-            endpoint_id = f"END-{uuid.uuid4().hex[:9].upper()}"
+            endpoint_id = str(uuid.uuid4())
             if not cls.objects.filter(endpoint_id=endpoint_id).exists():
                 return endpoint_id

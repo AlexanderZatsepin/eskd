@@ -6,12 +6,12 @@
 ;;; WireEndpoint block attributes:
 ;;;   Block name: Block_Test_Marking
 ;;;   ENDPOINT_ID, PROJECT_ID, ORDER_NUMBER, DWG_ID, REF_ID,
-;;;   MARK, POSITION, WIRE_TYPE, WIRE_COLOR, SYNC_STATUS
+;;;   MARK_1, MARK_2, POSITION, WIRE_TYPE, WIRE_COLOR, SYNC_STATUS
 ;;;   ENDPOINT_ID may be empty before the first successful sync.
 ;;;
 ;;; Commands:
 ;;;   ESKD_WIRE_GET, ESKD_WIRE_CREATE, ESKD_WIRE_UPDATE, ESKD_WIRE_DELETE, ESKD_WIRE_SYNC
-;;;   ESKD_WIRE_LINK_REF, ESKD_WIRE_CLEAR_REF
+;;;   ESKD_WIRE_LINK_REF, ESKD_WIRE_CLEAR_REF, ESKD_WIRE_INSERT
 
 (vl-load-com)
 
@@ -24,7 +24,7 @@
 )
 
 (defun eskd-wire-existing-required-tags ()
-  '("ENDPOINT_ID" "PROJECT_ID" "ORDER_NUMBER" "DWG_ID" "REF_ID" "MARK" "POSITION")
+  '("ENDPOINT_ID" "PROJECT_ID" "ORDER_NUMBER" "DWG_ID")
 )
 
 (defun eskd-wire-selected-entity-and-attrs (prompt / entity attrs)
@@ -91,7 +91,8 @@
     (list
       (eskd-json-number "drawing" drawing-id)
       (eskd-json-string "ref_id" (eskd-attr attrs "REF_ID"))
-      (eskd-json-string "mark" (eskd-attr attrs "MARK"))
+      (eskd-json-string "mark_1" (eskd-attr attrs "MARK_1"))
+      (eskd-json-string "mark_2" (eskd-attr attrs "MARK_2"))
       (eskd-json-string "position" (eskd-attr attrs "POSITION"))
       (eskd-json-string "wire_type" (eskd-attr attrs "WIRE_TYPE"))
       (eskd-json-string "wire_color" (eskd-attr attrs "WIRE_COLOR"))
@@ -131,14 +132,60 @@
   )
 )
 
+(defun eskd-set-block-attrs (entity pairs)
+  (foreach pair pairs
+    (eskd-set-block-attr entity (car pair) (cdr pair))
+  )
+)
+
 (defun eskd-non-empty (value)
   (and value (/= value ""))
 )
 
 (defun eskd-generate-ref-id (entity-a entity-b / handle-a handle-b)
-  (setq handle-a (cdr (assoc 5 (entget entity-a))))
-  (setq handle-b (cdr (assoc 5 (entget entity-b))))
-  (strcat "W-" handle-a "-" handle-b)
+  (eskd-new-uuid)
+)
+
+(defun eskd-new-uuid (/ typelib guid)
+  (setq guid nil)
+  (setq typelib (vl-catch-all-apply 'vlax-create-object (list "Scriptlet.TypeLib")))
+  (if (not (vl-catch-all-error-p typelib))
+    (progn
+      (setq guid (vlax-get-property typelib 'Guid))
+      (vlax-release-object typelib)
+      (setq guid (vl-string-subst "" "{" guid))
+      (setq guid (vl-string-subst "" "}" guid))
+    )
+  )
+  (if guid
+    (strcase guid T)
+    (strcat
+      (cdr (assoc 5 (entget (car (entsel "\nSelect any entity for UUID fallback seed: ")))))
+      "-"
+      (rtos (getvar "CDATE") 2 8)
+    )
+  )
+)
+
+(defun eskd-getstring-default (prompt default / value)
+  (setq value (getstring T (strcat "\n" prompt " <" default ">: ")))
+  (if (= value "")
+    default
+    value
+  )
+)
+
+(defun eskd-insert-block-reference (block-name insert-point / before after old-attreq)
+  (setq old-attreq (getvar "ATTREQ"))
+  (setq before (entlast))
+  (setvar "ATTREQ" 0)
+  (command "_.-INSERT" block-name insert-point 1.0 1.0 0.0)
+  (setvar "ATTREQ" old-attreq)
+  (setq after (entlast))
+  (if (/= before after)
+    after
+    nil
+  )
 )
 
 (defun eskd-wire-selected-attrs (/ pair)
@@ -205,6 +252,48 @@
       (eskd-set-block-attr entity "REF_ID" "")
       (eskd-set-block-attr entity "SYNC_STATUS" "DIRTY")
       (princ "\nREF_ID cleared. SYNC_STATUS set to DIRTY.")
+    )
+  )
+  (princ)
+)
+
+(defun c:ESKD_WIRE_INSERT (/ project-id order-number dwg-id mark-1 mark-2 wire-type wire-color point entity)
+  (setq project-id (eskd-getstring-default "PROJECT_ID" (if *eskd-last-project-id* *eskd-last-project-id* "-")))
+  (setq order-number (eskd-getstring-default "ORDER_NUMBER" (if *eskd-last-order-number* *eskd-last-order-number* "-")))
+  (setq dwg-id (eskd-getstring-default "DWG_ID" (if *eskd-last-dwg-id* *eskd-last-dwg-id* "-")))
+  (setq mark-1 (eskd-getstring-default "MARK_1" "-"))
+  (setq mark-2 (eskd-getstring-default "MARK_2" "-"))
+  (setq wire-type (eskd-getstring-default "WIRE_TYPE" "-"))
+  (setq wire-color (eskd-getstring-default "WIRE_COLOR" "-"))
+  (setq point (getpoint "\nInsertion point for marking block: "))
+  (if point
+    (progn
+      (setq entity (eskd-insert-block-reference "Block_Test_Marking" point))
+      (if entity
+        (progn
+          (setq *eskd-last-project-id* project-id)
+          (setq *eskd-last-order-number* order-number)
+          (setq *eskd-last-dwg-id* dwg-id)
+          (eskd-set-block-attrs
+            entity
+            (list
+              (cons "ENDPOINT_ID" "")
+              (cons "PROJECT_ID" project-id)
+              (cons "ORDER_NUMBER" order-number)
+              (cons "DWG_ID" dwg-id)
+              (cons "REF_ID" "")
+              (cons "MARK_1" mark-1)
+              (cons "MARK_2" mark-2)
+              (cons "POSITION" "-")
+              (cons "WIRE_TYPE" wire-type)
+              (cons "WIRE_COLOR" wire-color)
+              (cons "SYNC_STATUS" "NEW")
+            )
+          )
+          (princ "\nMarking block inserted.")
+        )
+        (princ "\nBlock_Test_Marking was not inserted. Make sure the block definition exists in this drawing.")
+      )
     )
   )
   (princ)
@@ -345,5 +434,5 @@
 )
 
 (princ "\nESKD WireEndpoint CRUD loaded.")
-(princ "\nCommands: ESKD_WIRE_LINK_REF, ESKD_WIRE_CLEAR_REF, ESKD_WIRE_SYNC, plus GET/CREATE/UPDATE/DELETE variants.")
+(princ "\nCommands: ESKD_WIRE_INSERT, ESKD_WIRE_LINK_REF, ESKD_WIRE_CLEAR_REF, ESKD_WIRE_SYNC, plus GET/CREATE/UPDATE/DELETE variants.")
 (princ)

@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from marking.models import Drawing, Project, WireEndpoint
+from marking.models import Drawing, Project, WireColor, WireEndpoint, WireType
 
 
 @admin.register(Project)
@@ -18,6 +18,18 @@ class DrawingAdmin(admin.ModelAdmin):
 
 @admin.register(WireEndpoint)
 class WireEndpointAdmin(admin.ModelAdmin):
-    list_display = ["endpoint_id", "drawing", "ref_id", "mark", "position", "sync_status"]
+    list_display = ["endpoint_id", "drawing", "ref_id", "mark_1", "mark_2", "position", "sync_status"]
     list_filter = ["sync_status", "drawing__project"]
-    search_fields = ["endpoint_id", "ref_id", "mark", "position"]
+    search_fields = ["endpoint_id", "ref_id", "mark_1", "mark_2", "position"]
+
+
+@admin.register(WireType)
+class WireTypeAdmin(admin.ModelAdmin):
+    list_display = ["name", "description", "updated_at"]
+    search_fields = ["name", "description"]
+
+
+@admin.register(WireColor)
+class WireColorAdmin(admin.ModelAdmin):
+    list_display = ["name", "description", "updated_at"]
+    search_fields = ["name", "description"]

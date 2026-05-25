@@ -21,6 +21,9 @@ eskd_main : dialog {
   : boxed_column {
     label = "Marking";
     : row {
+      : button { key = "wire_insert"; label = "Add marking block"; width = 24; }
+    }
+    : row {
       : button { key = "wire_sync"; label = "Marking Sync"; width = 18; }
       : button { key = "wire_link"; label = "Link REF_ID"; width = 18; }
       : button { key = "wire_clear"; label = "Clear REF_ID"; width = 18; }

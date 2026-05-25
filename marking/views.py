@@ -1,7 +1,13 @@
 from rest_framework import viewsets
 
-from marking.models import Drawing, Project, WireEndpoint
-from marking.serializers import DrawingSerializer, ProjectSerializer, WireEndpointSerializer
+from marking.models import Drawing, Project, WireColor, WireEndpoint, WireType
+from marking.serializers import (
+    DrawingSerializer,
+    ProjectSerializer,
+    WireColorSerializer,
+    WireEndpointSerializer,
+    WireTypeSerializer,
+)
 
 
 class ProjectViewSet(viewsets.ModelViewSet):
@@ -40,6 +46,18 @@ class DrawingViewSet(viewsets.ModelViewSet):
         return queryset
 
 
+class WireTypeViewSet(viewsets.ModelViewSet):
+    queryset = WireType.objects.all()
+    serializer_class = WireTypeSerializer
+    search_fields = ["name"]
+
+
+class WireColorViewSet(viewsets.ModelViewSet):
+    queryset = WireColor.objects.all()
+    serializer_class = WireColorSerializer
+    search_fields = ["name"]
+
+
 class WireEndpointViewSet(viewsets.ModelViewSet):
     serializer_class = WireEndpointSerializer
     lookup_field = "endpoint_id"
@@ -51,6 +69,7 @@ class WireEndpointViewSet(viewsets.ModelViewSet):
         dwg_id = self.request.query_params.get("dwg_id")
         endpoint_id = self.request.query_params.get("endpoint_id")
         ref_id = self.request.query_params.get("ref_id")
+        mark_1 = self.request.query_params.get("mark_1")
         sync_status = self.request.query_params.get("sync_status")
 
         if project_id:
@@ -63,6 +82,8 @@ class WireEndpointViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(endpoint_id=endpoint_id)
         if ref_id:
             queryset = queryset.filter(ref_id=ref_id)
+        if mark_1:
+            queryset = queryset.filter(mark_1=mark_1)
         if sync_status:
             queryset = queryset.filter(sync_status=sync_status)
 

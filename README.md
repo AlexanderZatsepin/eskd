@@ -1,6 +1,6 @@
 # ESKD marking CRUD service
 
-Минимальный Django REST Framework CRUD-микросервис для таблицы встречной маркировки.
+Минимальный Django REST Framework CRUD-микросервис для таблицы встречной маркировки и выгрузки таблицы кембриков.
 
 ## Stack
 
@@ -25,7 +25,7 @@
 ### Drawing
 
 - `project` - ссылка на проект
-- `dwg_id` - идентификатор чертежа или DWG-файла, например `SHU-01-001`
+- `dwg_id` - идентификатор чертежа или DWG-файла
 - `name` - название чертежа
 - `file_name` - имя файла
 
@@ -33,18 +33,17 @@
 
 ### WireEndpoint
 
-Один конец провода / один блок маркировки.
+Один блок маркировки / одна запись маркировки.
 
-- `endpoint_id` - уникальный идентификатор, например `END-8F3A2C9D`
+- `endpoint_id` - UUID, генерируется сервером
 - `drawing` - ссылка на чертеж
-- `ref_id` - общий идентификатор связи/провода, например `W-000101`
-- `mark` - точка подключения, например `K1:14`
+- `ref_id` - UUID связи, присваивается командой связи двух блоков
+- `mark_1` - маркировка 1, по умолчанию `-`
+- `mark_2` - маркировка 2, по умолчанию `-`
 - `position` - позиция/зона/место
-- `wire_type` - тип/сечение провода
-- `wire_color` - цвет провода
+- `wire_type` - тип/сечение провода, по умолчанию `-`
+- `wire_color` - цвет провода, по умолчанию `-`
 - `sync_status` - `NEW`, `SYNCED`, `DIRTY`, `ERROR`
-
-`endpoint_id` можно не передавать при создании: сервер сгенерирует его сам.
 
 ## Authorization
 
@@ -73,6 +72,8 @@ python manage.py createsuperuser
 
 - `/api/projects/`
 - `/api/drawings/`
+- `/api/wire-types/`
+- `/api/wire-colors/`
 - `/api/wire-endpoints/`
 
 Фильтры:
@@ -82,7 +83,8 @@ python manage.py createsuperuser
 - `/api/drawings/?project_id=PRJ-2026-001&order_number=ORD-001&dwg_id=SHU-01-001`
 - `/api/wire-endpoints/?project_id=PRJ-2026-001&order_number=ORD-001`
 - `/api/wire-endpoints/?dwg_id=SHU-01-001`
-- `/api/wire-endpoints/?ref_id=W-000101`
+- `/api/wire-endpoints/?ref_id=<uuid>`
+- `/api/wire-endpoints/?mark_1=K1:14`
 - `/api/wire-endpoints/?sync_status=DIRTY`
 
 ## Reports
@@ -137,41 +139,32 @@ APPLOAD -> autocad/eskd_wire_endpoint_crud.lsp
 APPLOAD -> autocad/eskd_ui.lsp
 ```
 
-Команды авторизации:
+Главное окно:
 
-- `ESKD_LOGIN`
-- `ESKD_STATUS`
-- `ESKD_LOGOUT`
+```text
+ESKD
+```
 
-Простой интерфейс:
+Текущий интерфейс сделан на DCL. DCL в AutoCAD модальный: пока окно открыто, чертежом работать нельзя. Поэтому окно закрывается после нажатия кнопки, выполняет команду и возвращает управление AutoCAD. Для постоянно открытой панели нужен отдельный .NET PaletteSet-плагин.
 
-- `ESKD` - открыть DCL-окно с кнопками авторизации, синхронизации и отчетов
+Адрес сервера по умолчанию для `ESKD_LOGIN`:
 
-Команды проекта:
+```text
+http://172.16.51.49:8010
+```
 
-- `ESKD_PROJECT_GET`
-- `ESKD_PROJECT_CREATE`
-- `ESKD_PROJECT_UPDATE`
-- `ESKD_PROJECT_DELETE`
-- `ESKD_PROJECT_SYNC`
+В меню есть кнопки:
 
-Команды чертежа:
-
-- `ESKD_DRAWING_GET`
-- `ESKD_DRAWING_CREATE`
-- `ESKD_DRAWING_UPDATE`
-- `ESKD_DRAWING_DELETE`
-- `ESKD_DRAWING_SYNC`
-
-Команды маркировки:
-
-- `ESKD_WIRE_GET`
-- `ESKD_WIRE_CREATE`
-- `ESKD_WIRE_UPDATE`
-- `ESKD_WIRE_DELETE`
-- `ESKD_WIRE_SYNC`
-- `ESKD_WIRE_LINK_REF`
-- `ESKD_WIRE_CLEAR_REF`
+- `Login`
+- `Status`
+- `Logout`
+- `Project Sync`
+- `Drawing Sync`
+- `Add marking block`
+- `Marking Sync`
+- `Link REF_ID`
+- `Clear REF_ID`
+- `Cambrics report`
 
 ## AutoCAD Blocks
 
@@ -205,15 +198,27 @@ PROJECT_ID
 ORDER_NUMBER
 DWG_ID
 REF_ID
-MARK
+MARK_1
+MARK_2
 POSITION
 WIRE_TYPE
 WIRE_COLOR
 SYNC_STATUS
 ```
 
-`ENDPOINT_ID` в новом блоке можно оставлять пустым. При первом `ESKD_WIRE_CREATE` или `ESKD_WIRE_SYNC` сервер создаст ID вида `END-XXXXXXXXX`, а LISP запишет его обратно в атрибут блока.
+`ENDPOINT_ID` создается сервером как UUID и записывается обратно в блок после первого успешного `ESKD_WIRE_CREATE` или `ESKD_WIRE_SYNC`.
 
-`ESKD_WIRE_LINK_REF` выбирает два блока маркировки и записывает одинаковый `REF_ID` в оба. Если `REF_ID` уже есть в одном из блоков, используется он. Если оба пустые, создается новый по handles выбранных блоков.
+`REF_ID` создается как UUID командой `ESKD_WIRE_LINK_REF`, когда выбираются два блока маркировки. Сервер сам `REF_ID` не создает.
 
-`REF_ID` не создается сервером при создании маркировки. Его нужно назначать отдельной командой `ESKD_WIRE_LINK_REF`. Если блок был скопирован и унаследовал старый `REF_ID`, очисти его командой `ESKD_WIRE_CLEAR_REF`.
+`ESKD_WIRE_INSERT` / кнопка `Add marking block` вставляет новый `Block_Test_Marking` и спрашивает:
+
+```text
+MARK_1
+MARK_2
+WIRE_TYPE
+WIRE_COLOR
+```
+
+Значение по умолчанию для этих полей: `-`.
+
+Если блок был скопирован и унаследовал старый `REF_ID`, очисти его командой `ESKD_WIRE_CLEAR_REF`.

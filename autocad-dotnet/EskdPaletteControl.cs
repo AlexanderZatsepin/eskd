@@ -140,42 +140,60 @@ namespace Eskd.AutoCAD
         private Control MarkingGroup()
         {
             var group = Group("Маркировка");
+            var content = new TableLayoutPanel
+            {
+                Dock = DockStyle.Top,
+                AutoSize = true,
+                ColumnCount = 1
+            };
+            group.Controls.Add(content);
+
             _mark1 = TextBox("-");
             _mark2 = TextBox("-");
             _wireTypes = Combo();
             _wireColors = Combo();
-            group.Controls.Add(Row(Label("MARK_1"), _mark1));
-            group.Controls.Add(Row(Label("MARK_2"), _mark2));
-            group.Controls.Add(Button("Добавить блок маркировки", OnInsertMarking));
-            group.Controls.Add(Button("Редактировать выбранную маркировку", OnEditMarking));
-
-            group.Controls.Add(Row(Label("Тип"), _wireTypes));
-            group.Controls.Add(Row(Label("Цвет"), _wireColors));
 
             var dictionaryButtons = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true };
             dictionaryButtons.Controls.Add(Button("Загрузить справочники", OnLoadWireDictionaries));
             dictionaryButtons.Controls.Add(Button("Назначить выбранным", OnAssignWireTypeColor));
-            group.Controls.Add(dictionaryButtons);
 
             var linkButtons = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true };
             linkButtons.Controls.Add(Button("Связать", OnLinkMarkings));
             linkButtons.Controls.Add(Button("Очистить связь", OnClearRef));
-            group.Controls.Add(linkButtons);
 
             var copyButtons = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true };
             copyButtons.Controls.Add(Button("Копировать маркировки", OnCopyMarkings));
             copyButtons.Controls.Add(Button("Переоформить ID выбранным", OnReissueSelectedIds));
             copyButtons.Controls.Add(Button("Перенести в выбранный шкаф", OnMoveSelectedToCabinet));
-            group.Controls.Add(copyButtons);
+
+            var createButtons = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true };
+            createButtons.Controls.Add(Button("Добавить блок маркировки", OnInsertMarking));
+            createButtons.Controls.Add(Button("Редактировать выбранную маркировку", OnEditMarking));
+
+            content.Controls.Add(Row(Label("MARK_1"), _mark1));
+            content.Controls.Add(Row(Label("MARK_2"), _mark2));
+            content.Controls.Add(createButtons);
+            content.Controls.Add(copyButtons);
+            content.Controls.Add(linkButtons);
+            content.Controls.Add(Row(Label("Тип"), _wireTypes));
+            content.Controls.Add(Row(Label("Цвет"), _wireColors));
+            content.Controls.Add(dictionaryButtons);
             return group;
         }
 
         private Control CheckGroup()
         {
             var group = Group("Сверка");
-            group.Controls.Add(Button("Сверить чертеж с БД", OnCheckDrawing));
+            var content = new TableLayoutPanel
+            {
+                Dock = DockStyle.Top,
+                AutoSize = true,
+                ColumnCount = 1
+            };
+            group.Controls.Add(content);
+            content.Controls.Add(Button("Сверить чертеж с БД", OnCheckDrawing));
             _checkResult = new ListBox { Dock = DockStyle.Top, Height = 180 };
-            group.Controls.Add(_checkResult);
+            content.Controls.Add(_checkResult);
             return group;
         }
 

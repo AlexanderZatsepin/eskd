@@ -7,8 +7,7 @@ from django.http import HttpResponse
 from django.shortcuts import render
 from django.utils.text import slugify
 from openpyxl import Workbook
-from openpyxl.styles import Alignment, Font, PatternFill
-from openpyxl.worksheet.table import Table, TableStyleInfo
+from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 
 from marking.models import Cabinet, Project, WireEndpoint
 
@@ -52,13 +51,12 @@ def _build_cambrics_response(cabinet):
     endpoints = list(
         WireEndpoint.objects.select_related("cabinet", "wire_type", "wire_color")
         .filter(cabinet=cabinet)
-        .order_by("mark_1", "ref")
+        .order_by("wire_color__name", "wire_type__name", "ref", "mark_1", "mark_2")
     )
 
-    by_ref_id = defaultdict(list)
+    columns = defaultdict(lambda: defaultdict(list))
     for endpoint in endpoints:
-        if endpoint.ref:
-            by_ref_id[endpoint.ref].append(endpoint)
+        columns[_wire_column_label(endpoint)][_ref_group_key(endpoint)].append(endpoint)
 
     workbook = Workbook()
     sheet = workbook.active
@@ -69,34 +67,30 @@ def _build_cambrics_response(cabinet):
     sheet.append(["Название", cabinet.name])
     sheet.append([])
 
-    headers = [
-        "Маркировка",
-        "Куда идет",
-        "REF_ID",
-        "Тип провода",
-        "Цвет",
-    ]
-    sheet.append(headers)
+    column_labels = sorted(columns.keys())
+    for column_index, label in enumerate(column_labels, start=1):
+        sheet.cell(row=5, column=column_index, value=label)
 
-    for endpoint in endpoints:
-        linked = [
-            other
-            for other in by_ref_id.get(endpoint.ref, [])
-            if other.uid != endpoint.uid
-        ]
-        linked_marks = ", ".join(_endpoint_label(item) for item in linked)
+    group_ranges = []
+    max_row = 5
+    for column_index, label in enumerate(column_labels, start=1):
+        row = 6
+        for ref_id in sorted(columns[label].keys()):
+            group = sorted(
+                columns[label][ref_id],
+                key=lambda item: (item.mark_1, item.mark_2, str(item.uid)),
+            )
+            start_row = row
+            for endpoint in group:
+                sheet.cell(row=row, column=column_index, value=_endpoint_mark(endpoint))
+                row += 1
+            end_row = row - 1
+            if start_row <= end_row:
+                group_ranges.append((column_index, start_row, end_row))
+            row += 1
+        max_row = max(max_row, row - 1)
 
-        sheet.append(
-            [
-                endpoint.mark_1,
-                linked_marks,
-                endpoint.ref,
-                endpoint.wire_type.name if endpoint.wire_type else "-",
-                endpoint.wire_color.name if endpoint.wire_color else "-",
-            ]
-        )
-
-    _format_cambrics_sheet(sheet, len(endpoints))
+    _format_cambrics_sheet(sheet, column_labels, group_ranges, max_row)
 
     output = BytesIO()
     workbook.save(output)
@@ -111,52 +105,62 @@ def _build_cambrics_response(cabinet):
     return response
 
 
-def _endpoint_label(endpoint):
-    return f"{endpoint.mark_1} ({endpoint.cabinet.cabinet_code})"
+def _wire_column_label(endpoint):
+    wire_color = endpoint.wire_color.name if endpoint.wire_color else "-"
+    wire_type = endpoint.wire_type.name if endpoint.wire_type else "-"
+    return f"{wire_color} - {wire_type}"
 
 
-def _format_cambrics_sheet(sheet, endpoint_count):
+def _ref_group_key(endpoint):
+    return endpoint.ref or f"NO_REF:{endpoint.uid}"
+
+
+def _endpoint_mark(endpoint):
+    if endpoint.mark_2 and endpoint.mark_2 != "-":
+        return f"{endpoint.mark_1} / {endpoint.mark_2}"
+    return endpoint.mark_1
+
+
+def _format_cambrics_sheet(sheet, column_labels, group_ranges, max_row):
     title_fill = PatternFill("solid", fgColor="D9EAF7")
     header_fill = PatternFill("solid", fgColor="1F4E79")
     header_font = Font(color="FFFFFF", bold=True)
+    thin_gray = Side(style="thin", color="D9D9D9")
+    thick_black = Side(style="medium", color="000000")
 
     for row in range(1, 4):
         sheet.cell(row=row, column=1).font = Font(bold=True)
         sheet.cell(row=row, column=1).fill = title_fill
 
     header_row = 5
-    for cell in sheet[header_row]:
+    max_column = max(1, len(column_labels))
+    for cell in sheet[header_row][:max_column]:
         cell.font = header_font
         cell.fill = header_fill
-        cell.alignment = Alignment(horizontal="center")
+        cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+        sheet.column_dimensions[cell.column_letter].width = 24
 
-    widths = {
-        "A": 24,
-        "B": 34,
-        "C": 40,
-        "D": 18,
-        "E": 12,
-    }
-    for column, width in widths.items():
-        sheet.column_dimensions[column].width = width
-
-    for row in sheet.iter_rows(min_row=6):
+    for row in sheet.iter_rows(min_row=6, max_row=max_row, max_col=max_column):
         for cell in row:
-            cell.alignment = Alignment(vertical="top", wrap_text=True)
+            cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+            cell.border = Border(
+                left=thin_gray,
+                right=thin_gray,
+                top=thin_gray,
+                bottom=thin_gray,
+            )
 
     sheet.freeze_panes = "A6"
 
-    if endpoint_count > 0:
-        table_ref = f"A5:E{5 + endpoint_count}"
-        table = Table(displayName="CambricsTable", ref=table_ref)
-        table.tableStyleInfo = TableStyleInfo(
-            name="TableStyleMedium2",
-            showFirstColumn=False,
-            showLastColumn=False,
-            showRowStripes=True,
-            showColumnStripes=False,
-        )
-        sheet.add_table(table)
+    for column_index, start_row, end_row in group_ranges:
+        for row in range(start_row, end_row + 1):
+            cell = sheet.cell(row=row, column=column_index)
+            cell.border = Border(
+                left=thick_black,
+                right=thick_black,
+                top=thick_black if row == start_row else thin_gray,
+                bottom=thick_black if row == end_row else thin_gray,
+            )
 
 
 def _cambrics_filename(cabinet):

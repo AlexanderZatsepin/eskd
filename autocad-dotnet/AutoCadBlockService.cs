@@ -578,6 +578,7 @@ namespace Eskd.AutoCAD
                 {
                     throw new InvalidOperationException("В выборе нет маркировок выбранного проекта и шкафа.");
                 }
+                EnsureSelectedHaveMarks(originals);
 
                 var refMap = NewRefMap(originals);
                 var ids = new ObjectIdCollection();
@@ -607,10 +608,10 @@ namespace Eskd.AutoCAD
                     {
                         CabinetDbId = cabinetDbId,
                         RefId = newRefId,
-                        Mark1 = Attr(original.Attributes, "MARK_1"),
-                        Mark2 = Attr(original.Attributes, "MARK_2"),
-                        WireType = Attr(original.Attributes, "WIRE_TYPE"),
-                        WireColor = Attr(original.Attributes, "WIRE_COLOR")
+                        Mark1 = MarkAttr(original.Attributes, "MARK_1"),
+                        Mark2 = MarkAttr(original.Attributes, "MARK_2"),
+                        WireType = EmptyToDash(Attr(original.Attributes, "WIRE_TYPE")),
+                        WireColor = EmptyToDash(Attr(original.Attributes, "WIRE_COLOR"))
                     });
 
                     var clone = (BlockReference)transaction.GetObject(cloneId, OpenMode.ForWrite);
@@ -658,6 +659,7 @@ namespace Eskd.AutoCAD
                 {
                     throw new InvalidOperationException("В выборе нет маркировок выбранного проекта и шкафа.");
                 }
+                EnsureSelectedHaveMarks(originals);
 
                 var refMap = NewRefMap(originals);
                 foreach (var original in originals)
@@ -668,10 +670,10 @@ namespace Eskd.AutoCAD
                     {
                         CabinetDbId = cabinetDbId,
                         RefId = newRefId,
-                        Mark1 = Attr(original.Attributes, "MARK_1"),
-                        Mark2 = Attr(original.Attributes, "MARK_2"),
-                        WireType = Attr(original.Attributes, "WIRE_TYPE"),
-                        WireColor = Attr(original.Attributes, "WIRE_COLOR")
+                        Mark1 = MarkAttr(original.Attributes, "MARK_1"),
+                        Mark2 = MarkAttr(original.Attributes, "MARK_2"),
+                        WireType = EmptyToDash(Attr(original.Attributes, "WIRE_TYPE")),
+                        WireColor = EmptyToDash(Attr(original.Attributes, "WIRE_COLOR"))
                     });
 
                     var reference = (BlockReference)transaction.GetObject(original.ObjectId, OpenMode.ForRead);
@@ -895,6 +897,25 @@ namespace Eskd.AutoCAD
         {
             string value;
             return attributes.TryGetValue(key, out value) ? value : string.Empty;
+        }
+
+        private static string MarkAttr(Dictionary<string, string> attributes, string key)
+        {
+            return EmptyToDash(Attr(attributes, key));
+        }
+
+        private static void EnsureSelectedHaveMarks(List<OriginalMarkingBlock> originals)
+        {
+            foreach (var original in originals)
+            {
+                if (IsEmptyMark(Attr(original.Attributes, "MARK_1")) &&
+                    IsEmptyMark(Attr(original.Attributes, "MARK_2")))
+                {
+                    throw new InvalidOperationException(
+                        "В выбранных блоках есть маркировка с пустыми MARK_1 и MARK_2. " +
+                        "Заполните маркировку или исключите пустой блок из выбора.");
+                }
+            }
         }
 
         private static bool IsEmptyMark(string value)

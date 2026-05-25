@@ -155,18 +155,22 @@ namespace Eskd.AutoCAD
 
         public EskdWireEndpoint CreateEndpoint(EndpointCreateRequest request)
         {
+            var mark1 = DashIfBlank(request.Mark1);
+            var mark2 = DashIfBlank(request.Mark2);
+            var wireType = DashIfBlank(request.WireType);
+            var wireColor = DashIfBlank(request.WireColor);
             var payload = _json.Serialize(new Dictionary<string, object>
             {
                 {"cabinet", request.CabinetDbId},
                 {"ref_id", request.RefId ?? string.Empty},
-                {"mark_1", string.IsNullOrWhiteSpace(request.Mark1) ? "-" : request.Mark1},
-                {"mark_2", string.IsNullOrWhiteSpace(request.Mark2) ? "-" : request.Mark2},
-                {"wire_type", string.IsNullOrWhiteSpace(request.WireType) ? "-" : request.WireType},
-                {"wire_color", string.IsNullOrWhiteSpace(request.WireColor) ? "-" : request.WireColor},
+                {"mark_1", mark1},
+                {"mark_2", mark2},
+                {"wire_type", wireType},
+                {"wire_color", wireColor},
                 {"sync_status", "SYNCED"}
             });
             var response = Request("POST", "/api/wire-endpoints/", payload, "application/json", true);
-            return new EskdWireEndpoint
+            var endpoint = new EskdWireEndpoint
             {
                 EndpointId = JsonMap.String(response, "endpoint_id"),
                 ProjectId = JsonMap.String(response, "project_id"),
@@ -178,6 +182,19 @@ namespace Eskd.AutoCAD
                 WireColor = JsonMap.String(response, "wire_color"),
                 SyncStatus = JsonMap.String(response, "sync_status")
             };
+            if (!SameValue(endpoint.Mark1, mark1) ||
+                !SameValue(endpoint.Mark2, mark2) ||
+                !SameValue(endpoint.WireType, wireType) ||
+                !SameValue(endpoint.WireColor, wireColor))
+            {
+                PatchEndpoint(endpoint.EndpointId, null, mark1, mark2, wireType, wireColor, "SYNCED");
+                endpoint.Mark1 = mark1;
+                endpoint.Mark2 = mark2;
+                endpoint.WireType = wireType;
+                endpoint.WireColor = wireColor;
+                endpoint.SyncStatus = "SYNCED";
+            }
+            return endpoint;
         }
 
         public List<WireDictionaryItem> GetWireTypes()
@@ -397,6 +414,16 @@ namespace Eskd.AutoCAD
         private static string TrimRightSlash(string value)
         {
             return string.IsNullOrWhiteSpace(value) ? value : value.TrimEnd('/');
+        }
+
+        private static string DashIfBlank(string value)
+        {
+            return string.IsNullOrWhiteSpace(value) ? "-" : value.Trim();
+        }
+
+        private static bool SameValue(string left, string right)
+        {
+            return string.Equals(DashIfBlank(left), DashIfBlank(right), StringComparison.Ordinal);
         }
     }
 }

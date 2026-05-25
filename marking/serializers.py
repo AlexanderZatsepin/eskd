@@ -11,7 +11,6 @@ class ProjectSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "project_id",
-            "order_number",
             "name",
             "description",
             "created_at",
@@ -22,7 +21,6 @@ class ProjectSerializer(serializers.ModelSerializer):
 
 class CabinetSerializer(serializers.ModelSerializer):
     project_id = serializers.CharField(source="project.code", read_only=True)
-    order_number = serializers.CharField(source="project.order_number", read_only=True)
     cabinet_id = serializers.CharField(source="code")
 
     class Meta:
@@ -31,14 +29,13 @@ class CabinetSerializer(serializers.ModelSerializer):
             "id",
             "project",
             "project_id",
-            "order_number",
             "cabinet_id",
             "name",
             "description",
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "project_id", "order_number", "created_at", "updated_at"]
+        read_only_fields = ["id", "project_id", "created_at", "updated_at"]
 
 
 class WireTypeSerializer(serializers.ModelSerializer):
@@ -58,7 +55,6 @@ class WireColorSerializer(serializers.ModelSerializer):
 class WireEndpointSerializer(serializers.ModelSerializer):
     endpoint_id = serializers.CharField(source="uid", read_only=True)
     project_id = serializers.CharField(source="cabinet.project.code", read_only=True)
-    order_number = serializers.CharField(source="cabinet.project.order_number", read_only=True)
     cabinet_id = serializers.CharField(source="cabinet.code", read_only=True)
     ref_id = serializers.CharField(source="ref", required=False, allow_blank=True)
     wire_type = serializers.CharField(required=False, allow_blank=True)
@@ -71,7 +67,6 @@ class WireEndpointSerializer(serializers.ModelSerializer):
             "endpoint_id",
             "cabinet",
             "project_id",
-            "order_number",
             "cabinet_id",
             "ref_id",
             "mark_1",
@@ -85,7 +80,6 @@ class WireEndpointSerializer(serializers.ModelSerializer):
         read_only_fields = [
             "endpoint_id",
             "project_id",
-            "order_number",
             "cabinet_id",
             "created_at",
             "updated_at",

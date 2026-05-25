@@ -5,7 +5,7 @@
 ;;;
 ;;; WireEndpoint block attributes:
 ;;;   Block name: Block_Test_Marking
-;;;   ENDPOINT_ID, PROJECT_ID, ORDER_NUMBER, CABINET_ID, REF_ID,
+;;;   ENDPOINT_ID, PROJECT_ID, CABINET_ID, REF_ID,
 ;;;   MARK_1, MARK_2, WIRE_TYPE, WIRE_COLOR, SYNC_STATUS
 ;;;   ENDPOINT_ID may be empty before the first successful sync.
 ;;;
@@ -16,15 +16,15 @@
 (vl-load-com)
 
 (defun eskd-wire-required-tags ()
-  '("PROJECT_ID" "ORDER_NUMBER" "CABINET_ID")
+  '("PROJECT_ID" "CABINET_ID")
 )
 
 (defun eskd-wire-crud-required-tags ()
-  '("PROJECT_ID" "ORDER_NUMBER" "CABINET_ID")
+  '("PROJECT_ID" "CABINET_ID")
 )
 
 (defun eskd-wire-existing-required-tags ()
-  '("ENDPOINT_ID" "PROJECT_ID" "ORDER_NUMBER" "CABINET_ID")
+  '("ENDPOINT_ID" "PROJECT_ID" "CABINET_ID")
 )
 
 (defun eskd-wire-selected-entity-and-attrs (prompt / entity attrs)
@@ -45,7 +45,6 @@
   (eskd-api-url
     (strcat
       "/api/wire-endpoints/?project_id=" (eskd-url-encode (eskd-attr attrs "PROJECT_ID"))
-      "&order_number=" (eskd-url-encode (eskd-attr attrs "ORDER_NUMBER"))
       "&cabinet_id=" (eskd-url-encode (eskd-attr attrs "CABINET_ID"))
       "&endpoint_id=" (eskd-url-encode (eskd-attr attrs "ENDPOINT_ID"))
     )
@@ -256,41 +255,40 @@
   (princ)
 )
 
-(defun c:ESKD_WIRE_INSERT (/ project-id order-number cabinet-id mark-1 mark-2 wire-type wire-color point entity)
-  (setq project-id (eskd-getstring-default "PROJECT_ID" (if *eskd-last-project-id* *eskd-last-project-id* "-")))
-  (setq order-number (eskd-getstring-default "ORDER_NUMBER" (if *eskd-last-order-number* *eskd-last-order-number* "-")))
-  (setq cabinet-id (eskd-getstring-default "CABINET_ID" (if *eskd-last-cabinet-id* *eskd-last-cabinet-id* "-")))
-  (setq mark-1 (eskd-getstring-default "MARK_1" "-"))
-  (setq mark-2 (eskd-getstring-default "MARK_2" "-"))
-  (setq wire-type (eskd-getstring-default "WIRE_TYPE" "-"))
-  (setq wire-color (eskd-getstring-default "WIRE_COLOR" "-"))
-  (setq point (getpoint "\nInsertion point for marking block: "))
-  (if point
+(defun c:ESKD_WIRE_INSERT (/ project-id cabinet-id mark-1 mark-2 wire-type wire-color point entity)
+  (if (eskd-require-cabinet-context)
     (progn
-      (setq entity (eskd-insert-block-reference "Block_Test_Marking" point))
-      (if entity
+      (setq project-id *eskd-current-project-id*)
+      (setq cabinet-id *eskd-current-cabinet-id*)
+      (setq mark-1 (eskd-getstring-default "MARK_1" "-"))
+      (setq mark-2 (eskd-getstring-default "MARK_2" "-"))
+      (setq wire-type (eskd-getstring-default "WIRE_TYPE" "-"))
+      (setq wire-color (eskd-getstring-default "WIRE_COLOR" "-"))
+      (setq point (getpoint "\nInsertion point for marking block: "))
+      (if point
         (progn
-          (setq *eskd-last-project-id* project-id)
-          (setq *eskd-last-order-number* order-number)
-          (setq *eskd-last-cabinet-id* cabinet-id)
-          (eskd-set-block-attrs
-            entity
-            (list
-              (cons "ENDPOINT_ID" "")
-              (cons "PROJECT_ID" project-id)
-              (cons "ORDER_NUMBER" order-number)
-              (cons "CABINET_ID" cabinet-id)
-              (cons "REF_ID" "")
-              (cons "MARK_1" mark-1)
-              (cons "MARK_2" mark-2)
-              (cons "WIRE_TYPE" wire-type)
-              (cons "WIRE_COLOR" wire-color)
-              (cons "SYNC_STATUS" "NEW")
+          (setq entity (eskd-insert-block-reference "Block_Test_Marking" point))
+          (if entity
+            (progn
+              (eskd-set-block-attrs
+                entity
+                (list
+                  (cons "ENDPOINT_ID" "")
+                  (cons "PROJECT_ID" project-id)
+                  (cons "CABINET_ID" cabinet-id)
+                  (cons "REF_ID" "")
+                  (cons "MARK_1" mark-1)
+                  (cons "MARK_2" mark-2)
+                  (cons "WIRE_TYPE" wire-type)
+                  (cons "WIRE_COLOR" wire-color)
+                  (cons "SYNC_STATUS" "NEW")
+                )
+              )
+              (princ "\nMarking block inserted.")
             )
+            (princ "\nBlock_Test_Marking was not inserted. Make sure the block definition exists in this drawing.")
           )
-          (princ "\nMarking block inserted.")
         )
-        (princ "\nBlock_Test_Marking was not inserted. Make sure the block definition exists in this drawing.")
       )
     )
   )

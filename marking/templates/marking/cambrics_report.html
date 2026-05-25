@@ -10,8 +10,8 @@
       color: #1f2933;
     }
 
-    form {
-      max-width: 420px;
+    .page {
+      max-width: 760px;
     }
 
     label {
@@ -20,17 +20,25 @@
       margin: 18px 0 6px;
     }
 
-    input {
+    select {
       box-sizing: border-box;
       width: 100%;
+      max-width: 460px;
       padding: 10px 12px;
       border: 1px solid #b8c2cc;
       border-radius: 4px;
       font-size: 15px;
+      background: #fff;
+    }
+
+    .cabinet-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 18px;
     }
 
     button {
-      margin-top: 22px;
       padding: 11px 16px;
       border: 0;
       border-radius: 4px;
@@ -38,6 +46,15 @@
       color: #fff;
       font-weight: 700;
       cursor: pointer;
+    }
+
+    button:hover {
+      background: #173b5c;
+    }
+
+    .empty {
+      margin-top: 18px;
+      color: #64748b;
     }
 
     .error {
@@ -52,22 +69,85 @@
   </style>
 </head>
 <body>
-  <h1>Таблица кембриков</h1>
+  <main class="page">
+    <h1>Таблица кембриков</h1>
 
-  {% if error %}
-    <div class="error">{{ error }}</div>
-  {% endif %}
+    {% if error %}
+      <div class="error">{{ error }}</div>
+    {% endif %}
 
-  <form method="post">
-    {% csrf_token %}
+    <label for="project_id">Проект</label>
+    <select id="project_id">
+      <option value="">Выберите проект</option>
+      {% for project in projects %}
+        <option value="{{ project.id }}">{{ project.code }}{% if project.name %} - {{ project.name }}{% endif %}</option>
+      {% endfor %}
+    </select>
 
-    <label for="project_id">PROJECT_ID</label>
-    <input id="project_id" name="project_id" value="{{ project_id|default:'' }}" required>
+    <div id="cabinet_list" class="cabinet-list"></div>
+    <div id="empty_message" class="empty">Выберите проект, чтобы увидеть список шкафов.</div>
+  </main>
 
-    <label for="order_number">ORDER_NUMBER</label>
-    <input id="order_number" name="order_number" value="{{ order_number|default:'' }}" required>
+  <script>
+    const cabinetsByProject = {{ cabinets_json|safe }};
+    const projectSelect = document.getElementById("project_id");
+    const cabinetList = document.getElementById("cabinet_list");
+    const emptyMessage = document.getElementById("empty_message");
+    const csrfToken = "{{ csrf_token }}";
 
-    <button type="submit">Скачать Excel</button>
-  </form>
+    function clearCabinets() {
+      while (cabinetList.firstChild) {
+        cabinetList.removeChild(cabinetList.firstChild);
+      }
+    }
+
+    function createDownloadButton(cabinet) {
+      const form = document.createElement("form");
+      form.method = "post";
+
+      const csrf = document.createElement("input");
+      csrf.type = "hidden";
+      csrf.name = "csrfmiddlewaretoken";
+      csrf.value = csrfToken;
+      form.appendChild(csrf);
+
+      const cabinetInput = document.createElement("input");
+      cabinetInput.type = "hidden";
+      cabinetInput.name = "cabinet_id";
+      cabinetInput.value = cabinet.id;
+      form.appendChild(cabinetInput);
+
+      const button = document.createElement("button");
+      button.type = "submit";
+      button.textContent = cabinet.name ? `${cabinet.code} - ${cabinet.name}` : cabinet.code;
+      form.appendChild(button);
+
+      return form;
+    }
+
+    function renderCabinets() {
+      const projectId = projectSelect.value;
+      const cabinets = cabinetsByProject[projectId] || [];
+
+      clearCabinets();
+
+      if (!projectId) {
+        emptyMessage.textContent = "Выберите проект, чтобы увидеть список шкафов.";
+        emptyMessage.style.display = "block";
+        return;
+      }
+
+      if (cabinets.length === 0) {
+        emptyMessage.textContent = "У выбранного проекта пока нет шкафов.";
+        emptyMessage.style.display = "block";
+        return;
+      }
+
+      emptyMessage.style.display = "none";
+      cabinets.forEach((cabinet) => cabinetList.appendChild(createDownloadButton(cabinet)));
+    }
+
+    projectSelect.addEventListener("change", renderCabinets);
+  </script>
 </body>
 </html>

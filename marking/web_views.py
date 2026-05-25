@@ -1,3 +1,4 @@
+import json
 from collections import defaultdict
 from io import BytesIO
 
@@ -9,37 +10,49 @@ from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.worksheet.table import Table, TableStyleInfo
 
-from marking.models import Project, WireEndpoint
+from marking.models import Cabinet, Project, WireEndpoint
 
 
 @login_required(login_url="/admin/login/")
 def cambrics_report(request):
-    context = {}
+    projects = list(Project.objects.prefetch_related("cabinets").order_by("code"))
+    context = {
+        "projects": projects,
+        "cabinets_json": json.dumps(_cabinet_map(projects), ensure_ascii=False),
+    }
 
     if request.method == "POST":
-        project_id = request.POST.get("project_id", "").strip()
-        order_number = request.POST.get("order_number", "").strip()
-
-        context["project_id"] = project_id
-        context["order_number"] = order_number
-
+        cabinet_pk = request.POST.get("cabinet_id")
         try:
-            project = Project.objects.get(code=project_id, order_number=order_number)
-        except Project.DoesNotExist:
-            context["error"] = "Проект с таким PROJECT_ID и ORDER_NUMBER не найден."
-        except Project.MultipleObjectsReturned:
-            context["error"] = "Найдено несколько проектов с таким PROJECT_ID и ORDER_NUMBER."
+            cabinet = Cabinet.objects.select_related("project").get(pk=cabinet_pk)
+        except Cabinet.DoesNotExist:
+            context["error"] = "Шкаф не найден."
         else:
-            return _build_cambrics_response(project)
+            return _build_cambrics_response(cabinet)
 
     return render(request, "marking/cambrics_report.html", context)
 
 
-def _build_cambrics_response(project):
+def _cabinet_map(projects):
+    result = {}
+    for project in projects:
+        result[str(project.pk)] = [
+            {
+                "id": cabinet.pk,
+                "code": cabinet.code,
+                "name": cabinet.name,
+                "description": cabinet.description,
+            }
+            for cabinet in project.cabinets.all().order_by("code")
+        ]
+    return result
+
+
+def _build_cambrics_response(cabinet):
     endpoints = list(
         WireEndpoint.objects.select_related("cabinet", "wire_type", "wire_color")
-        .filter(cabinet__project=project)
-        .order_by("cabinet__code", "mark_1", "ref")
+        .filter(cabinet=cabinet)
+        .order_by("mark_1", "ref")
     )
 
     by_ref_id = defaultdict(list)
@@ -51,13 +64,12 @@ def _build_cambrics_response(project):
     sheet = workbook.active
     sheet.title = "Кембрики"
 
-    sheet.append(["Проект", project.code])
-    sheet.append(["Номер заказа", project.order_number])
-    sheet.append(["Название", project.name])
+    sheet.append(["Проект", cabinet.project.code])
+    sheet.append(["Шкаф", cabinet.code])
+    sheet.append(["Название", cabinet.name])
     sheet.append([])
 
     headers = [
-        "Шкаф",
         "Маркировка",
         "Куда идет",
         "REF_ID",
@@ -76,7 +88,6 @@ def _build_cambrics_response(project):
 
         sheet.append(
             [
-                endpoint.cabinet.code,
                 endpoint.mark_1,
                 linked_marks,
                 endpoint.ref,
@@ -91,7 +102,7 @@ def _build_cambrics_response(project):
     workbook.save(output)
     output.seek(0)
 
-    filename = _cambrics_filename(project)
+    filename = _cambrics_filename(cabinet)
     response = HttpResponse(
         output.getvalue(),
         content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -120,12 +131,11 @@ def _format_cambrics_sheet(sheet, endpoint_count):
         cell.alignment = Alignment(horizontal="center")
 
     widths = {
-        "A": 18,
-        "B": 24,
-        "C": 34,
-        "D": 40,
-        "E": 18,
-        "F": 12,
+        "A": 24,
+        "B": 34,
+        "C": 40,
+        "D": 18,
+        "E": 12,
     }
     for column, width in widths.items():
         sheet.column_dimensions[column].width = width
@@ -137,7 +147,7 @@ def _format_cambrics_sheet(sheet, endpoint_count):
     sheet.freeze_panes = "A6"
 
     if endpoint_count > 0:
-        table_ref = f"A5:F{5 + endpoint_count}"
+        table_ref = f"A5:E{5 + endpoint_count}"
         table = Table(displayName="CambricsTable", ref=table_ref)
         table.tableStyleInfo = TableStyleInfo(
             name="TableStyleMedium2",
@@ -149,6 +159,6 @@ def _format_cambrics_sheet(sheet, endpoint_count):
         sheet.add_table(table)
 
 
-def _cambrics_filename(project):
-    base = slugify(f"cambrics-{project.code}-{project.order_number}", allow_unicode=False)
+def _cambrics_filename(cabinet):
+    base = slugify(f"cambrics-{cabinet.project.code}-{cabinet.code}", allow_unicode=False)
     return f"{base or 'cambrics'}.xlsx"

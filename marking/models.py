@@ -5,7 +5,6 @@ from django.db import models
 
 class Project(models.Model):
     code = models.CharField(max_length=64)
-    order_number = models.CharField(max_length=64, blank=True)
     name = models.CharField(max_length=255)
     description = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -15,8 +14,8 @@ class Project(models.Model):
         ordering = ["code"]
         constraints = [
             models.UniqueConstraint(
-                fields=["code", "order_number"],
-                name="unique_project_order_number",
+                fields=["code"],
+                name="unique_project_code",
             )
         ]
 

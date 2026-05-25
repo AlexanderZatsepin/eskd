@@ -5,8 +5,8 @@ from marking.models import Cabinet, Project, WireColor, WireEndpoint, WireType
 
 @admin.register(Project)
 class ProjectAdmin(admin.ModelAdmin):
-    list_display = ["code", "order_number", "name", "updated_at"]
-    search_fields = ["code", "order_number", "name"]
+    list_display = ["code", "name", "updated_at"]
+    search_fields = ["code", "name"]
 
 
 @admin.register(Cabinet)

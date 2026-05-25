@@ -11,10 +11,16 @@ eskd_main : dialog {
   }
 
   : boxed_column {
-    label = "Project and cabinet";
+    label = "Current project and cabinet";
+    : edit_box { key = "project_id"; label = "PROJECT_ID"; edit_width = 28; }
+    : edit_box { key = "project_name"; label = "PROJECT_NAME"; edit_width = 28; }
+    : edit_box { key = "project_description"; label = "PROJECT_DESCRIPTION"; edit_width = 28; }
+    : edit_box { key = "cabinet_id"; label = "CABINET_ID"; edit_width = 28; }
+    : edit_box { key = "cabinet_name"; label = "CABINET_NAME"; edit_width = 28; }
+    : edit_box { key = "cabinet_description"; label = "CABINET_DESCRIPTION"; edit_width = 28; }
     : row {
+      : button { key = "context_save"; label = "Use context"; width = 18; }
       : button { key = "project_sync"; label = "Project Sync"; width = 18; }
-      : button { key = "cabinet_insert"; label = "Add cabinet block"; width = 20; }
       : button { key = "cabinet_sync"; label = "Cabinet Sync"; width = 18; }
     }
   }

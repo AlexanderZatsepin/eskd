@@ -17,12 +17,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         queryset = Project.objects.all()
         project_id = self.request.query_params.get("project_id")
-        order_number = self.request.query_params.get("order_number")
 
         if project_id:
             queryset = queryset.filter(code=project_id)
-        if order_number:
-            queryset = queryset.filter(order_number=order_number)
 
         return queryset
 
@@ -33,13 +30,10 @@ class CabinetViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         queryset = Cabinet.objects.select_related("project")
         project_id = self.request.query_params.get("project_id")
-        order_number = self.request.query_params.get("order_number")
         cabinet_id = self.request.query_params.get("cabinet_id")
 
         if project_id:
             queryset = queryset.filter(project__code=project_id)
-        if order_number:
-            queryset = queryset.filter(project__order_number=order_number)
         if cabinet_id:
             queryset = queryset.filter(code=cabinet_id)
 
@@ -65,7 +59,6 @@ class WireEndpointViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         queryset = WireEndpoint.objects.select_related("cabinet", "cabinet__project")
         project_id = self.request.query_params.get("project_id")
-        order_number = self.request.query_params.get("order_number")
         cabinet_id = self.request.query_params.get("cabinet_id")
         endpoint_id = self.request.query_params.get("endpoint_id")
         ref_id = self.request.query_params.get("ref_id")
@@ -74,8 +67,6 @@ class WireEndpointViewSet(viewsets.ModelViewSet):
 
         if project_id:
             queryset = queryset.filter(cabinet__project__code=project_id)
-        if order_number:
-            queryset = queryset.filter(cabinet__project__order_number=order_number)
         if cabinet_id:
             queryset = queryset.filter(cabinet__code=cabinet_id)
         if endpoint_id:

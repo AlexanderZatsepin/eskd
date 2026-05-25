@@ -1,23 +1,23 @@
 ;;; ESKD Project/Cabinet CRUD for AutoCAD 2016-2018.
 ;;; Load after autocad/eskd_auth.lsp.
 ;;;
-;;; Project block attributes:
-;;;   Block name: Block_Test_Project
-;;;   PROJECT_ID, ORDER_NUMBER, PROJECT_NAME, DESCRIPTION
-;;;
-;;; Cabinet block attributes:
-;;;   Block name: Block_Test_Cabinet
-;;;   PROJECT_ID, ORDER_NUMBER, CABINET_ID, CABINET_NAME, DESCRIPTION
-;;;
 ;;; Commands:
+;;;   ESKD_CONTEXT_SET, ESKD_CONTEXT_STATUS
 ;;;   ESKD_PROJECT_GET, ESKD_PROJECT_CREATE, ESKD_PROJECT_UPDATE, ESKD_PROJECT_DELETE, ESKD_PROJECT_SYNC
-;;;   ESKD_CABINET_INSERT, ESKD_CABINET_GET, ESKD_CABINET_CREATE, ESKD_CABINET_UPDATE, ESKD_CABINET_DELETE, ESKD_CABINET_SYNC
+;;;   ESKD_CABINET_GET, ESKD_CABINET_CREATE, ESKD_CABINET_UPDATE, ESKD_CABINET_DELETE, ESKD_CABINET_SYNC
 
 (vl-load-com)
 
 (setq *eskd-project-block-name* "BLOCK_TEST_PROJECT")
 (setq *eskd-cabinet-block-name* "BLOCK_TEST_CABINET")
 (setq *eskd-marking-block-name* "BLOCK_TEST_MARKING")
+
+(if (not *eskd-current-project-id*) (setq *eskd-current-project-id* ""))
+(if (not *eskd-current-project-name*) (setq *eskd-current-project-name* ""))
+(if (not *eskd-current-project-description*) (setq *eskd-current-project-description* ""))
+(if (not *eskd-current-cabinet-id*) (setq *eskd-current-cabinet-id* ""))
+(if (not *eskd-current-cabinet-name*) (setq *eskd-current-cabinet-name* ""))
+(if (not *eskd-current-cabinet-description*) (setq *eskd-current-cabinet-description* ""))
 
 (defun eskd-require-auth ()
   (if (and *eskd-server-url* *eskd-token*)
@@ -205,6 +205,10 @@
   (cdr (assoc (strcase tag) attrs))
 )
 
+(defun eskd-non-empty (value)
+  (and value (/= value ""))
+)
+
 (defun eskd-require-attrs (attrs tags / ok value)
   (setq ok T)
   (foreach tag tags
@@ -223,7 +227,6 @@
   (eskd-api-url
     (strcat
       "/api/projects/?project_id=" (eskd-url-encode (eskd-attr attrs "PROJECT_ID"))
-      "&order_number=" (eskd-url-encode (eskd-attr attrs "ORDER_NUMBER"))
     )
   )
 )
@@ -232,7 +235,6 @@
   (eskd-api-url
     (strcat
       "/api/cabinets/?project_id=" (eskd-url-encode (eskd-attr attrs "PROJECT_ID"))
-      "&order_number=" (eskd-url-encode (eskd-attr attrs "ORDER_NUMBER"))
       "&cabinet_id=" (eskd-url-encode (eskd-attr attrs "CABINET_ID"))
     )
   )
@@ -274,7 +276,6 @@
   (eskd-json-object
     (list
       (eskd-json-string "project_id" (eskd-attr attrs "PROJECT_ID"))
-      (eskd-json-string "order_number" (eskd-attr attrs "ORDER_NUMBER"))
       (eskd-json-string "name" (eskd-attr attrs "PROJECT_NAME"))
       (eskd-json-string "description" (eskd-attr attrs "DESCRIPTION"))
     )
@@ -287,7 +288,7 @@
       (eskd-json-number "project" project-id)
       (eskd-json-string "cabinet_id" (eskd-attr attrs "CABINET_ID"))
       (eskd-json-string "name" (eskd-attr attrs "CABINET_NAME"))
-      (eskd-json-string "description" (eskd-attr attrs "DESCRIPTION"))
+      (eskd-json-string "description" (eskd-attr attrs "CABINET_DESCRIPTION"))
     )
   )
 )
@@ -302,62 +303,65 @@
   result
 )
 
-(defun eskd-project-selected-attrs (/ entity attrs)
-  (setq entity (eskd-select-named-block "\nSelect project block: " *eskd-project-block-name*))
-  (if entity
+(defun eskd-current-project-attrs ()
+  (list
+    (cons "PROJECT_ID" *eskd-current-project-id*)
+    (cons "PROJECT_NAME" *eskd-current-project-name*)
+    (cons "DESCRIPTION" *eskd-current-project-description*)
+  )
+)
+
+(defun eskd-current-cabinet-attrs ()
+  (append
+    (eskd-current-project-attrs)
+    (list
+      (cons "CABINET_ID" *eskd-current-cabinet-id*)
+      (cons "CABINET_NAME" *eskd-current-cabinet-name*)
+      (cons "CABINET_DESCRIPTION" *eskd-current-cabinet-description*)
+    )
+  )
+)
+
+(defun eskd-context-has-project ()
+  (eskd-non-empty *eskd-current-project-id*)
+)
+
+(defun eskd-context-has-cabinet ()
+  (and
+    (eskd-context-has-project)
+    (eskd-non-empty *eskd-current-cabinet-id*)
+  )
+)
+
+(defun eskd-require-project-context ()
+  (if (eskd-context-has-project)
+    T
     (progn
-      (setq attrs (eskd-block-attrs entity))
-      (if (eskd-require-attrs attrs '("PROJECT_ID" "ORDER_NUMBER" "PROJECT_NAME"))
-        attrs
-        nil
-      )
+      (princ "\nSet PROJECT_ID in ESKD panel first.")
+      nil
     )
-    nil
   )
 )
 
-(defun eskd-cabinet-selected-attrs (/ entity attrs)
-  (setq entity (eskd-select-named-block "\nSelect cabinet block: " *eskd-cabinet-block-name*))
-  (if entity
+(defun eskd-require-cabinet-context ()
+  (if (eskd-context-has-cabinet)
+    T
     (progn
-      (setq attrs (eskd-block-attrs entity))
-      (if (eskd-require-attrs attrs '("PROJECT_ID" "ORDER_NUMBER" "CABINET_ID"))
-        attrs
-        nil
-      )
-    )
-    nil
-  )
-)
-
-(defun eskd-set-block-attr (entity tag value / next data)
-  (setq tag (strcase tag))
-  (setq next (entnext entity))
-  (while next
-    (setq data (entget next))
-    (cond
-      ((= (cdr (assoc 0 data)) "ATTRIB")
-        (if (= (strcase (cdr (assoc 2 data))) tag)
-          (progn
-            (entmod (subst (cons 1 value) (assoc 1 data) data))
-            (entupd entity)
-            (setq next nil)
-          )
-        )
-      )
-      ((= (cdr (assoc 0 data)) "SEQEND")
-        (setq next nil)
-      )
-    )
-    (if next
-      (setq next (entnext next))
+      (princ "\nSet PROJECT_ID and CABINET_ID in ESKD panel first.")
+      nil
     )
   )
 )
 
-(defun eskd-set-block-attrs (entity pairs)
-  (foreach pair pairs
-    (eskd-set-block-attr entity (car pair) (cdr pair))
+(defun eskd-context-print ()
+  (princ
+    (strcat
+      "\nCurrent ESKD context:"
+      "\n  PROJECT_ID: " *eskd-current-project-id*
+      "\n  PROJECT_NAME: " *eskd-current-project-name*
+      "\n  CABINET_ID: " *eskd-current-cabinet-id*
+      "\n  CABINET_NAME: " *eskd-current-cabinet-name*
+    )
   )
 )
 
@@ -369,25 +373,30 @@
   )
 )
 
-(defun eskd-insert-block-reference (block-name insert-point / before after old-attreq)
-  (setq old-attreq (getvar "ATTREQ"))
-  (setq before (entlast))
-  (setvar "ATTREQ" 0)
-  (command "_.-INSERT" block-name insert-point 1.0 1.0 0.0)
-  (setvar "ATTREQ" old-attreq)
-  (setq after (entlast))
-  (if (/= before after)
-    after
-    nil
-  )
+(defun c:ESKD_CONTEXT_SET ()
+  (setq *eskd-current-project-id* (eskd-getstring-default "PROJECT_ID" *eskd-current-project-id*))
+  (setq *eskd-current-project-name* (eskd-getstring-default "PROJECT_NAME" *eskd-current-project-name*))
+  (setq *eskd-current-project-description* (eskd-getstring-default "PROJECT_DESCRIPTION" *eskd-current-project-description*))
+  (setq *eskd-current-cabinet-id* (eskd-getstring-default "CABINET_ID" *eskd-current-cabinet-id*))
+  (setq *eskd-current-cabinet-name* (eskd-getstring-default "CABINET_NAME" *eskd-current-cabinet-name*))
+  (setq *eskd-current-cabinet-description* (eskd-getstring-default "CABINET_DESCRIPTION" *eskd-current-cabinet-description*))
+  (eskd-context-print)
+  (princ)
+)
+
+(defun c:ESKD_CONTEXT_STATUS ()
+  (eskd-context-print)
+  (princ)
 )
 
 (defun c:ESKD_PROJECT_GET (/ attrs result)
   (if (eskd-require-auth)
     (progn
-      (setq attrs (eskd-project-selected-attrs))
-      (if attrs
+      (if (eskd-require-project-context)
+        (progn
+          (setq attrs (eskd-current-project-attrs))
         (eskd-print-http-result "Project GET" (eskd-http-json "GET" (eskd-project-query-url attrs) nil))
+        )
       )
     )
   )
@@ -397,11 +406,13 @@
 (defun c:ESKD_PROJECT_CREATE (/ attrs result)
   (if (eskd-require-auth)
     (progn
-      (setq attrs (eskd-project-selected-attrs))
-      (if attrs
+      (if (eskd-require-project-context)
+        (progn
+          (setq attrs (eskd-current-project-attrs))
         (eskd-print-http-result
           "Project CREATE"
           (eskd-http-json "POST" (eskd-api-url "/api/projects/") (eskd-project-body attrs))
+        )
         )
       )
     )
@@ -412,9 +423,9 @@
 (defun c:ESKD_PROJECT_UPDATE (/ attrs id)
   (if (eskd-require-auth)
     (progn
-      (setq attrs (eskd-project-selected-attrs))
-      (if attrs
+      (if (eskd-require-project-context)
         (progn
+          (setq attrs (eskd-current-project-attrs))
           (setq id (eskd-find-project-id attrs))
           (if id
             (eskd-print-http-result
@@ -437,9 +448,9 @@
 (defun c:ESKD_PROJECT_DELETE (/ attrs id)
   (if (eskd-require-auth)
     (progn
-      (setq attrs (eskd-project-selected-attrs))
-      (if attrs
+      (if (eskd-require-project-context)
         (progn
+          (setq attrs (eskd-current-project-attrs))
           (setq id (eskd-find-project-id attrs))
           (if id
             (eskd-print-http-result
@@ -458,9 +469,9 @@
 (defun c:ESKD_PROJECT_SYNC (/ attrs id)
   (if (eskd-require-auth)
     (progn
-      (setq attrs (eskd-project-selected-attrs))
-      (if attrs
+      (if (eskd-require-project-context)
         (progn
+          (setq attrs (eskd-current-project-attrs))
           (setq id (eskd-find-project-id attrs))
           (if id
             (eskd-print-http-result
@@ -483,46 +494,14 @@
   (princ)
 )
 
-(defun c:ESKD_CABINET_INSERT (/ project-id order-number cabinet-id cabinet-name description point entity)
-  (setq project-id (eskd-getstring-default "PROJECT_ID" (if *eskd-last-project-id* *eskd-last-project-id* "-")))
-  (setq order-number (eskd-getstring-default "ORDER_NUMBER" (if *eskd-last-order-number* *eskd-last-order-number* "-")))
-  (setq cabinet-id (eskd-getstring-default "CABINET_ID" (if *eskd-last-cabinet-id* *eskd-last-cabinet-id* "-")))
-  (setq cabinet-name (eskd-getstring-default "CABINET_NAME" cabinet-id))
-  (setq description (eskd-getstring-default "DESCRIPTION" "-"))
-  (setq point (getpoint "\nInsertion point for cabinet block: "))
-  (if point
-    (progn
-      (setq entity (eskd-insert-block-reference "Block_Test_Cabinet" point))
-      (if entity
-        (progn
-          (setq *eskd-last-project-id* project-id)
-          (setq *eskd-last-order-number* order-number)
-          (setq *eskd-last-cabinet-id* cabinet-id)
-          (eskd-set-block-attrs
-            entity
-            (list
-              (cons "PROJECT_ID" project-id)
-              (cons "ORDER_NUMBER" order-number)
-              (cons "CABINET_ID" cabinet-id)
-              (cons "CABINET_NAME" cabinet-name)
-              (cons "DESCRIPTION" description)
-            )
-          )
-          (princ "\nCabinet block inserted.")
-        )
-        (princ "\nBlock_Test_Cabinet was not inserted. Make sure the block definition exists in this drawing.")
-      )
-    )
-  )
-  (princ)
-)
-
 (defun c:ESKD_CABINET_GET (/ attrs)
   (if (eskd-require-auth)
     (progn
-      (setq attrs (eskd-cabinet-selected-attrs))
-      (if attrs
+      (if (eskd-require-cabinet-context)
+        (progn
+          (setq attrs (eskd-current-cabinet-attrs))
         (eskd-print-http-result "Cabinet GET" (eskd-http-json "GET" (eskd-cabinet-query-url attrs) nil))
+        )
       )
     )
   )
@@ -532,9 +511,9 @@
 (defun c:ESKD_CABINET_CREATE (/ attrs project-id)
   (if (eskd-require-auth)
     (progn
-      (setq attrs (eskd-cabinet-selected-attrs))
-      (if attrs
+      (if (eskd-require-cabinet-context)
         (progn
+          (setq attrs (eskd-current-cabinet-attrs))
           (setq project-id (eskd-find-project-id attrs))
           (if project-id
             (eskd-print-http-result
@@ -553,9 +532,9 @@
 (defun c:ESKD_CABINET_UPDATE (/ attrs id project-id)
   (if (eskd-require-auth)
     (progn
-      (setq attrs (eskd-cabinet-selected-attrs))
-      (if attrs
+      (if (eskd-require-cabinet-context)
         (progn
+          (setq attrs (eskd-current-cabinet-attrs))
           (setq id (eskd-find-cabinet-id attrs))
           (setq project-id (eskd-find-project-id attrs))
           (cond
@@ -582,9 +561,9 @@
 (defun c:ESKD_CABINET_DELETE (/ attrs id)
   (if (eskd-require-auth)
     (progn
-      (setq attrs (eskd-cabinet-selected-attrs))
-      (if attrs
+      (if (eskd-require-cabinet-context)
         (progn
+          (setq attrs (eskd-current-cabinet-attrs))
           (setq id (eskd-find-cabinet-id attrs))
           (if id
             (eskd-print-http-result
@@ -603,9 +582,9 @@
 (defun c:ESKD_CABINET_SYNC (/ attrs id project-id)
   (if (eskd-require-auth)
     (progn
-      (setq attrs (eskd-cabinet-selected-attrs))
-      (if attrs
+      (if (eskd-require-cabinet-context)
         (progn
+          (setq attrs (eskd-current-cabinet-attrs))
           (setq project-id (eskd-find-project-id attrs))
           (if project-id
             (progn
@@ -642,5 +621,5 @@
 (defun eskd-find-drawing-id (attrs) (eskd-find-cabinet-id attrs))
 
 (princ "\nESKD project/cabinet CRUD loaded.")
-(princ "\nCommands: ESKD_PROJECT_SYNC, ESKD_CABINET_INSERT, ESKD_CABINET_SYNC, plus GET/CREATE/UPDATE/DELETE variants.")
+(princ "\nCommands: ESKD_CONTEXT_SET, ESKD_PROJECT_SYNC, ESKD_CABINET_SYNC, plus GET/CREATE/UPDATE/DELETE variants.")
 (princ)

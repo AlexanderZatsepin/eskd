@@ -16,11 +16,10 @@
 ### Project
 
 - `project_id` - идентификатор проекта, например `PRJ-2026-001`
-- `order_number` - номер заказа
 - `name` - название проекта
 - `description` - описание
 
-Пара `project_id + order_number` уникальна.
+`project_id` уникален.
 
 ### Cabinet
 
@@ -87,10 +86,10 @@ python manage.py createsuperuser
 
 Фильтры:
 
-- `/api/projects/?project_id=PRJ-2026-001&order_number=ORD-001`
-- `/api/cabinets/?project_id=PRJ-2026-001&order_number=ORD-001`
-- `/api/cabinets/?project_id=PRJ-2026-001&order_number=ORD-001&cabinet_id=SHU-01`
-- `/api/wire-endpoints/?project_id=PRJ-2026-001&order_number=ORD-001`
+- `/api/projects/?project_id=PRJ-2026-001`
+- `/api/cabinets/?project_id=PRJ-2026-001`
+- `/api/cabinets/?project_id=PRJ-2026-001&cabinet_id=SHU-01`
+- `/api/wire-endpoints/?project_id=PRJ-2026-001`
 - `/api/wire-endpoints/?cabinet_id=SHU-01`
 - `/api/wire-endpoints/?ref_id=<uuid>`
 - `/api/wire-endpoints/?mark_1=K1:14`
@@ -114,7 +113,6 @@ http://127.0.0.1:8010/admin/
 
 ```text
 PROJECT_ID
-ORDER_NUMBER
 ```
 
 После отправки скачивается `.xlsx` файл. Таблица сортируется по шкафу, маркировке и `REF_ID`.
@@ -191,8 +189,8 @@ http://172.16.51.49:8010
 - `Login`
 - `Status`
 - `Logout`
+- `Use context`
 - `Project Sync`
-- `Add cabinet block`
 - `Cabinet Sync`
 - `Add marking block`
 - `Marking Sync`
@@ -200,36 +198,16 @@ http://172.16.51.49:8010
 - `Clear REF_ID`
 - `Cambrics report`
 
-## AutoCAD Blocks
+## AutoCAD Block
 
-Блок проекта:
+Проект и шкаф выбираются в панели `ESKD`, отдельные блоки проекта и шкафа в DWG больше не нужны.
 
-```text
-Block name: Block_Test_Project
-PROJECT_ID
-ORDER_NUMBER
-PROJECT_NAME
-DESCRIPTION
-```
-
-Блок шкафа:
-
-```text
-Block name: Block_Test_Cabinet
-PROJECT_ID
-ORDER_NUMBER
-CABINET_ID
-CABINET_NAME
-DESCRIPTION
-```
-
-Блок маркировки:
+В чертеже нужен только блок маркировки:
 
 ```text
 Block name: Block_Test_Marking
 ENDPOINT_ID
 PROJECT_ID
-ORDER_NUMBER
 CABINET_ID
 REF_ID
 MARK_1
@@ -243,14 +221,15 @@ SYNC_STATUS
 
 `REF_ID` создается как UUID командой `ESKD_WIRE_LINK_REF`, когда выбираются два блока маркировки. Сервер сам `REF_ID` не создает.
 
-`ESKD_CABINET_INSERT` / кнопка `Add cabinet block` вставляет новый `Block_Test_Cabinet` и спрашивает:
+В панели `ESKD` заполняются поля текущего контекста:
 
 ```text
 PROJECT_ID
-ORDER_NUMBER
+PROJECT_NAME
+PROJECT_DESCRIPTION
 CABINET_ID
 CABINET_NAME
-DESCRIPTION
+CABINET_DESCRIPTION
 ```
 
 `ESKD_WIRE_INSERT` / кнопка `Add marking block` вставляет новый `Block_Test_Marking` и спрашивает:

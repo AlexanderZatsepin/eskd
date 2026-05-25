@@ -25,15 +25,8 @@
   (if value value "")
 )
 
-(defun eskd-ui-project-name-value (/ value)
-  (setq value (eskd-ui-value *eskd-current-project-name*))
-  (if (vl-string-search "?" value)
-    (progn
-      (setq *eskd-current-project-name* "")
-      ""
-    )
-    value
-  )
+(defun eskd-ui-project-name-value ()
+  (eskd-ui-value *eskd-current-project-name*)
 )
 (defun eskd-ui-ensure-project-cabinet-options ()
   (if (not *eskd-project-options*) (setq *eskd-project-options* '("-")))

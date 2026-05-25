@@ -187,7 +187,7 @@
     (while (and (< end (strlen json)) (/= (substr json (1+ end) 1) "\""))
       (setq end (1+ end))
     )
-    (setq value (substr json (1+ start) (- end start)))
+    (setq value (eskd-json-decode-string (substr json (1+ start) (- end start))))
     (if (eskd-non-empty value)
       (setq values (append values (list value)))
     )

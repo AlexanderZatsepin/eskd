@@ -41,6 +41,73 @@
   result
 )
 
+(defun eskd-hex-char-value (ch / code)
+  (setq code (ascii ch))
+  (cond
+    ((and (>= code 48) (<= code 57)) (- code 48))
+    ((and (>= code 65) (<= code 70)) (+ 10 (- code 65)))
+    ((and (>= code 97) (<= code 102)) (+ 10 (- code 97)))
+    (T 0)
+  )
+)
+
+(defun eskd-hex4-value (value)
+  (+
+    (* 4096 (eskd-hex-char-value (substr value 1 1)))
+    (* 256 (eskd-hex-char-value (substr value 2 1)))
+    (* 16 (eskd-hex-char-value (substr value 3 1)))
+    (eskd-hex-char-value (substr value 4 1))
+  )
+)
+
+(defun eskd-unicode-char (code)
+  (cond
+    ((< code 128) (chr code))
+    ((= code 1025) (chr 168))
+    ((= code 1105) (chr 184))
+    ((= code 8470) (chr 185))
+    ((= code 160) " ")
+    ((= code 176) (chr 176))
+    ((= code 178) "2")
+    ((and (>= code 1040) (<= code 1103)) (chr (+ 192 (- code 1040))))
+    (T "?")
+  )
+)
+
+(defun eskd-json-decode-string (value / result i ch next code)
+  (setq result "")
+  (setq i 1)
+  (while (<= i (strlen value))
+    (setq ch (substr value i 1))
+    (if (and (= ch "\\") (< i (strlen value)))
+      (progn
+        (setq next (substr value (1+ i) 1))
+        (cond
+          ((= next "u")
+            (if (<= (+ i 5) (strlen value))
+              (progn
+                (setq code (eskd-hex4-value (substr value (+ i 2) 4)))
+                (setq result (strcat result (eskd-unicode-char code)))
+                (setq i (+ i 5))
+              )
+              (setq result (strcat result "?"))
+            )
+          )
+          ((= next "n") (setq result (strcat result "\n")) (setq i (1+ i)))
+          ((= next "r") (setq result (strcat result "\r")) (setq i (1+ i)))
+          ((= next "t") (setq result (strcat result "\t")) (setq i (1+ i)))
+          ((= next "\"") (setq result (strcat result "\"")) (setq i (1+ i)))
+          ((= next "\\") (setq result (strcat result "\\")) (setq i (1+ i)))
+          (T (setq result (strcat result next)) (setq i (1+ i)))
+        )
+      )
+      (setq result (strcat result ch))
+    )
+    (setq i (1+ i))
+  )
+  result
+)
+
 (defun eskd-json-token-value (json key / pattern start end value)
   ;; Minimal parser for flat JSON responses like {"token":"..."}.
   (setq pattern (strcat "\"" key "\":"))
@@ -60,7 +127,7 @@
                       (/= (substr json end 1) "\""))
             (setq end (1+ end))
           )
-          (setq value (substr json start (- end start)))
+          (setq value (eskd-json-decode-string (substr json start (- end start))))
         )
       )
     )

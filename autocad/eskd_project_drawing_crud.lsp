@@ -261,12 +261,22 @@
   (cdr (assoc key record))
 )
 
-(defun eskd-project-record-label (record)
-  (or (eskd-record-value record "PROJECT_CODE") (eskd-record-value record "PROJECT_ID") "-")
+(defun eskd-project-record-label (record / code name)
+  (setq code (or (eskd-record-value record "PROJECT_CODE") (eskd-record-value record "PROJECT_ID") "-"))
+  (setq name (eskd-record-value record "PROJECT_NAME"))
+  (if (eskd-non-empty name)
+    (strcat code " - " name)
+    code
+  )
 )
 
-(defun eskd-cabinet-record-label (record)
-  (or (eskd-record-value record "CABINET_CODE") (eskd-record-value record "CABINET_ID") "-")
+(defun eskd-cabinet-record-label (record / code name)
+  (setq code (or (eskd-record-value record "CABINET_CODE") (eskd-record-value record "CABINET_ID") "-"))
+  (setq name (eskd-record-value record "CABINET_NAME"))
+  (if (eskd-non-empty name)
+    (strcat code " - " name)
+    code
+  )
 )
 
 (defun eskd-project-options-from-records (records / result)
@@ -285,13 +295,14 @@
   (if result result '("-"))
 )
 
-(defun eskd-project-records-from-json (json / result objects project-id project-code id)
+(defun eskd-project-records-from-json (json / result objects project-id project-code project-name id)
   (setq result nil)
   (setq objects (eskd-json-records-by-key json "project_id"))
   (foreach object objects
     (setq id (eskd-json-number-value object "id"))
     (setq project-id (eskd-json-token-value object "project_id"))
     (setq project-code (eskd-json-token-value object "project_code"))
+    (setq project-name (eskd-json-token-value object "name"))
     (if (eskd-non-empty project-id)
       (setq result
         (append result
@@ -300,6 +311,7 @@
               (cons "ID" id)
               (cons "PROJECT_ID" project-id)
               (cons "PROJECT_CODE" project-code)
+              (cons "PROJECT_NAME" project-name)
             )
           )
         )
@@ -309,13 +321,15 @@
   result
 )
 
-(defun eskd-cabinet-records-from-json (json / result objects cabinet-id cabinet-code id)
+(defun eskd-cabinet-records-from-json (json / result objects cabinet-id cabinet-code cabinet-name cabinet-description id)
   (setq result nil)
   (setq objects (eskd-json-records-by-key json "cabinet_id"))
   (foreach object objects
     (setq id (eskd-json-number-value object "id"))
     (setq cabinet-id (eskd-json-token-value object "cabinet_id"))
     (setq cabinet-code (eskd-json-token-value object "cabinet_code"))
+    (setq cabinet-name (eskd-json-token-value object "name"))
+    (setq cabinet-description (eskd-json-token-value object "description"))
     (if (eskd-non-empty cabinet-id)
       (setq result
         (append result
@@ -324,6 +338,8 @@
               (cons "ID" id)
               (cons "CABINET_ID" cabinet-id)
               (cons "CABINET_CODE" cabinet-code)
+              (cons "CABINET_NAME" cabinet-name)
+              (cons "CABINET_DESCRIPTION" cabinet-description)
             )
           )
         )
@@ -551,7 +567,7 @@
   (if (eskd-context-has-cabinet-code)
     T
     (progn
-      (princ "\n??????? ??? ?????.")
+      (princ "\nÂâåäèòå êîä øêàôà.")
       nil
     )
   )
@@ -581,13 +597,14 @@
   )
 )
 
-(defun eskd-store-current-project-id (result / status response project-id project-code)
+(defun eskd-store-current-project-id (result / status response project-id project-code project-name)
   (setq status (car result))
   (setq response (cadr result))
   (if (and (>= status 200) (< status 300))
     (progn
       (setq project-id (eskd-json-token-value response "project_id"))
       (setq project-code (eskd-json-token-value response "project_code"))
+      (setq project-name (eskd-json-token-value response "name"))
       (if (eskd-non-empty project-id)
         (progn
           (setq *eskd-current-project-id* project-id)
@@ -597,18 +614,23 @@
       (if (eskd-non-empty project-code)
         (setq *eskd-current-project-code* project-code)
       )
+      (if (eskd-non-empty project-name)
+        (setq *eskd-current-project-name* project-name)
+      )
     )
   )
   result
 )
 
-(defun eskd-store-current-cabinet-id (result / status response cabinet-id cabinet-code)
+(defun eskd-store-current-cabinet-id (result / status response cabinet-id cabinet-code cabinet-name cabinet-description)
   (setq status (car result))
   (setq response (cadr result))
   (if (and (>= status 200) (< status 300))
     (progn
       (setq cabinet-id (eskd-json-token-value response "cabinet_id"))
       (setq cabinet-code (eskd-json-token-value response "cabinet_code"))
+      (setq cabinet-name (eskd-json-token-value response "name"))
+      (setq cabinet-description (eskd-json-token-value response "description"))
       (if (eskd-non-empty cabinet-id)
         (progn
           (setq *eskd-current-cabinet-id* cabinet-id)
@@ -617,6 +639,12 @@
       )
       (if (eskd-non-empty cabinet-code)
         (setq *eskd-current-cabinet-code* cabinet-code)
+      )
+      (if (eskd-non-empty cabinet-name)
+        (setq *eskd-current-cabinet-name* cabinet-name)
+      )
+      (if (eskd-non-empty cabinet-description)
+        (setq *eskd-current-cabinet-description* cabinet-description)
       )
     )
   )
@@ -675,7 +703,7 @@ Projects load failed: HTTP " (itoa status) ": " response))
     (progn
       (setq *eskd-current-project-id* (eskd-record-value record "PROJECT_ID"))
       (setq *eskd-current-project-code* (eskd-record-value record "PROJECT_CODE"))
-      (setq *eskd-current-project-name* "")
+      (setq *eskd-current-project-name* (eskd-record-value record "PROJECT_NAME"))
       (setq *eskd-current-cabinet-id* "")
       (setq *eskd-current-cabinet-code* "")
       (setq *eskd-current-cabinet-name* "")
@@ -683,11 +711,9 @@ Projects load failed: HTTP " (itoa status) ": " response))
       (setq *eskd-cabinet-records* nil)
       (setq *eskd-cabinet-options* '("-"))
       (setq *eskd-selected-cabinet-index* 0)
-      (princ (strcat "
-Project selected: " *eskd-current-project-code*))
+      (princ (strcat "\n" "Ïğîåêò âûáğàí: " *eskd-current-project-code*))
     )
-    (princ "
-Project list is empty. Load projects first.")
+    (princ "\nÑïèñîê ïğîåêòîâ ïóñò. Ñíà÷àëà çàãğóçèòå ïğîåêòû.")
   )
   (princ)
 )
@@ -720,13 +746,11 @@ Cabinets load failed: HTTP " (itoa status) ": " response))
     (progn
       (setq *eskd-current-cabinet-id* (eskd-record-value record "CABINET_ID"))
       (setq *eskd-current-cabinet-code* (eskd-record-value record "CABINET_CODE"))
-      (setq *eskd-current-cabinet-name* "")
-      (setq *eskd-current-cabinet-description* "")
-      (princ (strcat "
-Cabinet selected: " *eskd-current-cabinet-code*))
+      (setq *eskd-current-cabinet-name* (eskd-record-value record "CABINET_NAME"))
+      (setq *eskd-current-cabinet-description* (eskd-record-value record "CABINET_DESCRIPTION"))
+      (princ (strcat "\n" "Øêàô âûáğàí: " *eskd-current-cabinet-code*))
     )
-    (princ "
-Cabinet list is empty. Load cabinets first.")
+    (princ "\nÑïèñîê øêàôîâ ïóñò. Ñíà÷àëà çàãğóçèòå øêàôû.")
   )
   (princ)
 )
@@ -757,7 +781,6 @@ Cabinet list is empty. Load cabinets first.")
           (if id
             (progn
               (eskd-store-current-project-id result)
-              (eskd-clear-current-project-name)
               (princ "\nÏğîåêò íàéäåí è âûáğàí.")
             )
             (princ "\nÏğîåêò ñ òàêèì øèôğîì íå íàéäåí.")
@@ -862,8 +885,7 @@ Cabinet list is empty. Load cabinets first.")
                 (eskd-store-current-project-id
                   (eskd-print-http-result "Project SYNC found" (eskd-http-json "GET" (eskd-project-code-query-url attrs) nil))
                 )
-                (eskd-clear-current-project-name)
-                (princ "\nÏğîåêò óæå åñòü íà ñåğâåğå, âûáğàí ñóùåñòâóşùèé.")
+                  (princ "\nÏğîåêò óæå åñòü íà ñåğâåğå, âûáğàí ñóùåñòâóşùèé.")
               )
             )
             (if (eskd-require-project-name)
@@ -910,7 +932,7 @@ Cabinet list is empty. Load cabinets first.")
                 (eskd-http-json "POST" (eskd-api-url "/api/cabinets/") (eskd-cabinet-body attrs project-id))
               )
             )
-            (princ "\nParent project was not found. Create/sync project first.")
+            (princ "\nÏğîåêò íå íàéäåí. Ñíà÷àëà ñîçäàéòå èëè âûáåğèòå ïğîåêò.")
           )
         )
       )
@@ -928,8 +950,8 @@ Cabinet list is empty. Load cabinets first.")
           (setq id (eskd-find-cabinet-id attrs))
           (setq project-id (eskd-find-project-id attrs))
           (cond
-            ((not id) (princ "\nCabinet was not found."))
-            ((not project-id) (princ "\nParent project was not found."))
+            ((not id) (princ "\nØêàô íå íàéäåí."))
+            ((not project-id) (princ "\nÏğîåêò íå íàéäåí."))
             (T
               (eskd-print-http-result
                 "Cabinet UPDATE"
@@ -960,7 +982,7 @@ Cabinet list is empty. Load cabinets first.")
               "Cabinet DELETE"
               (eskd-http-json "DELETE" (eskd-api-url (strcat "/api/cabinets/" (itoa id) "/")) nil)
             )
-            (princ "\nCabinet was not found.")
+            (princ "\nØêàô íå íàéäåí.")
           )
         )
       )
@@ -998,7 +1020,7 @@ Cabinet list is empty. Load cabinets first.")
                 )
               )
             )
-            (princ "\nParent project was not found. Create/sync project first.")
+            (princ "\nÏğîåêò íå íàéäåí. Ñíà÷àëà ñîçäàéòå èëè âûáåğèòå ïğîåêò.")
           )
         )
       )

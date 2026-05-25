@@ -7,7 +7,6 @@ class Project(models.Model):
     code = models.CharField(max_length=36, blank=True)
     project_code = models.CharField(max_length=128, unique=True)
     name = models.CharField(max_length=255)
-    description = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

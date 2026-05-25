@@ -15,7 +15,6 @@
 (if (not *eskd-current-project-id*) (setq *eskd-current-project-id* ""))
 (if (not *eskd-current-project-code*) (setq *eskd-current-project-code* ""))
 (if (not *eskd-current-project-name*) (setq *eskd-current-project-name* ""))
-(if (not *eskd-current-project-description*) (setq *eskd-current-project-description* ""))
 (if (not *eskd-current-cabinet-id*) (setq *eskd-current-cabinet-id* ""))
 (if (not *eskd-current-cabinet-name*) (setq *eskd-current-cabinet-name* ""))
 (if (not *eskd-current-cabinet-description*) (setq *eskd-current-cabinet-description* ""))
@@ -293,7 +292,6 @@
     (list
       (eskd-json-string "project_code" (eskd-attr attrs "PROJECT_CODE"))
       (eskd-json-string "name" (eskd-attr attrs "PROJECT_NAME"))
-      (eskd-json-string "description" (eskd-attr attrs "DESCRIPTION"))
     )
   )
 )
@@ -323,7 +321,6 @@
     (cons "PROJECT_ID" *eskd-current-project-id*)
     (cons "PROJECT_CODE" *eskd-current-project-code*)
     (cons "PROJECT_NAME" *eskd-current-project-name*)
-    (cons "DESCRIPTION" *eskd-current-project-description*)
   )
 )
 
@@ -434,7 +431,7 @@
   )
 )
 
-(defun eskd-store-current-project-id (result / status response project-id project-code project-name project-description)
+(defun eskd-store-current-project-id (result / status response project-id project-code project-name)
   (setq status (car result))
   (setq response (cadr result))
   (if (and (>= status 200) (< status 300))
@@ -442,7 +439,6 @@
       (setq project-id (eskd-json-token-value response "project_id"))
       (setq project-code (eskd-json-token-value response "project_code"))
       (setq project-name (eskd-json-token-value response "name"))
-      (setq project-description (eskd-json-token-value response "description"))
       (if (eskd-non-empty project-id)
         (progn
           (setq *eskd-current-project-id* project-id)
@@ -454,9 +450,6 @@
       )
       (if (eskd-non-empty project-name)
         (setq *eskd-current-project-name* project-name)
-      )
-      (if (eskd-non-empty project-description)
-        (setq *eskd-current-project-description* project-description)
       )
     )
   )
@@ -491,7 +484,6 @@
 (defun c:ESKD_CONTEXT_SET ()
   (eskd-set-current-project-code (eskd-getstring-default "PROJECT_CODE" *eskd-current-project-code*))
   (setq *eskd-current-project-name* (eskd-getstring-default "PROJECT_NAME" *eskd-current-project-name*))
-  (setq *eskd-current-project-description* (eskd-getstring-default "PROJECT_DESCRIPTION" *eskd-current-project-description*))
   (setq *eskd-current-cabinet-name* (eskd-getstring-default "CABINET_NAME" *eskd-current-cabinet-name*))
   (setq *eskd-current-cabinet-description* (eskd-getstring-default "CABINET_DESCRIPTION" *eskd-current-cabinet-description*))
   (eskd-context-print)

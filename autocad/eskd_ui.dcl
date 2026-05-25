@@ -18,7 +18,6 @@ eskd_main : dialog {
     }
     : edit_box { key = "project_code"; label = "Шифр проекта"; edit_width = 28; }
     : edit_box { key = "project_name"; label = "Название проекта"; edit_width = 28; }
-    : edit_box { key = "project_description"; label = "Описание проекта"; edit_width = 28; }
     : row {
       : text { label = "UUID шкафа:"; width = 20; }
       : text { key = "cabinet_id"; label = ""; width = 40; }

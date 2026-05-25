@@ -13,7 +13,6 @@ class ProjectSerializer(serializers.ModelSerializer):
             "project_id",
             "project_code",
             "name",
-            "description",
             "created_at",
             "updated_at",
         ]

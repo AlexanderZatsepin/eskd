@@ -4,7 +4,7 @@ from django.db import models
 
 
 class Project(models.Model):
-    code = models.CharField(max_length=64)
+    code = models.CharField(max_length=36, blank=True)
     name = models.CharField(max_length=255)
     description = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -22,10 +22,22 @@ class Project(models.Model):
     def __str__(self):
         return f"{self.code} - {self.name}"
 
+    def save(self, *args, **kwargs):
+        if not self.code:
+            self.code = self._generate_code()
+        super().save(*args, **kwargs)
+
+    @classmethod
+    def _generate_code(cls):
+        while True:
+            code = str(uuid.uuid4())
+            if not cls.objects.filter(code=code).exists():
+                return code
+
 
 class Cabinet(models.Model):
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="cabinets")
-    code = models.CharField(max_length=128)
+    code = models.CharField(max_length=36, blank=True)
     name = models.CharField(max_length=255, blank=True)
     description = models.CharField(max_length=255, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -42,6 +54,18 @@ class Cabinet(models.Model):
 
     def __str__(self):
         return f"{self.project.code} / {self.code}"
+
+    def save(self, *args, **kwargs):
+        if not self.code:
+            self.code = self._generate_code()
+        super().save(*args, **kwargs)
+
+    @classmethod
+    def _generate_code(cls):
+        while True:
+            code = str(uuid.uuid4())
+            if not cls.objects.filter(code=code).exists():
+                return code
 
 
 class WireType(models.Model):

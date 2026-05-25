@@ -12,10 +12,16 @@ eskd_main : dialog {
 
   : boxed_column {
     label = "Текущий проект и шкаф";
-    : edit_box { key = "project_id"; label = "Код проекта"; edit_width = 28; }
+    : row {
+      : text { label = "UUID проекта:"; width = 20; }
+      : text { key = "project_id"; label = ""; width = 40; }
+    }
     : edit_box { key = "project_name"; label = "Название проекта"; edit_width = 28; }
     : edit_box { key = "project_description"; label = "Описание проекта"; edit_width = 28; }
-    : edit_box { key = "cabinet_id"; label = "Код шкафа"; edit_width = 28; }
+    : row {
+      : text { label = "UUID шкафа:"; width = 20; }
+      : text { key = "cabinet_id"; label = ""; width = 40; }
+    }
     : edit_box { key = "cabinet_name"; label = "Название шкафа"; edit_width = 28; }
     : edit_box { key = "cabinet_description"; label = "Описание шкафа"; edit_width = 28; }
     : row {

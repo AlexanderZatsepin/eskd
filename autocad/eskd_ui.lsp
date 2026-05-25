@@ -35,10 +35,8 @@
 )
 
 (defun eskd-ui-save-context ()
-  (setq *eskd-current-project-id* (get_tile "project_id"))
   (setq *eskd-current-project-name* (get_tile "project_name"))
   (setq *eskd-current-project-description* (get_tile "project_description"))
-  (setq *eskd-current-cabinet-id* (get_tile "cabinet_id"))
   (setq *eskd-current-cabinet-name* (get_tile "cabinet_name"))
   (setq *eskd-current-cabinet-description* (get_tile "cabinet_description"))
 )

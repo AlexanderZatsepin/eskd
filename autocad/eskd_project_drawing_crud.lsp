@@ -275,7 +275,6 @@
 (defun eskd-project-body (attrs)
   (eskd-json-object
     (list
-      (eskd-json-string "project_id" (eskd-attr attrs "PROJECT_ID"))
       (eskd-json-string "name" (eskd-attr attrs "PROJECT_NAME"))
       (eskd-json-string "description" (eskd-attr attrs "DESCRIPTION"))
     )
@@ -286,7 +285,6 @@
   (eskd-json-object
     (list
       (eskd-json-number "project" project-id)
-      (eskd-json-string "cabinet_id" (eskd-attr attrs "CABINET_ID"))
       (eskd-json-string "name" (eskd-attr attrs "CABINET_NAME"))
       (eskd-json-string "description" (eskd-attr attrs "CABINET_DESCRIPTION"))
     )
@@ -326,6 +324,10 @@
   (eskd-non-empty *eskd-current-project-id*)
 )
 
+(defun eskd-context-has-project-name ()
+  (eskd-non-empty *eskd-current-project-name*)
+)
+
 (defun eskd-context-has-cabinet ()
   (and
     (eskd-context-has-project)
@@ -333,11 +335,35 @@
   )
 )
 
+(defun eskd-context-has-cabinet-name ()
+  (eskd-non-empty *eskd-current-cabinet-name*)
+)
+
+(defun eskd-require-project-name ()
+  (if (eskd-context-has-project-name)
+    T
+    (progn
+      (princ "\nВведите название проекта.")
+      nil
+    )
+  )
+)
+
 (defun eskd-require-project-context ()
   (if (eskd-context-has-project)
     T
     (progn
-      (princ "\nSet PROJECT_ID in ESKD panel first.")
+      (princ "\nСначала сохраните проект, чтобы сервер выдал PROJECT_ID.")
+      nil
+    )
+  )
+)
+
+(defun eskd-require-cabinet-name ()
+  (if (eskd-context-has-cabinet-name)
+    T
+    (progn
+      (princ "\nВведите название шкафа.")
       nil
     )
   )
@@ -347,7 +373,7 @@
   (if (eskd-context-has-cabinet)
     T
     (progn
-      (princ "\nSet PROJECT_ID and CABINET_ID in ESKD panel first.")
+      (princ "\nСначала сохраните проект и шкаф, чтобы сервер выдал PROJECT_ID и CABINET_ID.")
       nil
     )
   )
@@ -365,6 +391,40 @@
   )
 )
 
+(defun eskd-store-current-project-id (result / status response project-id)
+  (setq status (car result))
+  (setq response (cadr result))
+  (if (and (>= status 200) (< status 300))
+    (progn
+      (setq project-id (eskd-json-token-value response "project_id"))
+      (if (eskd-non-empty project-id)
+        (progn
+          (setq *eskd-current-project-id* project-id)
+          (princ (strcat "\nPROJECT_ID: " project-id))
+        )
+      )
+    )
+  )
+  result
+)
+
+(defun eskd-store-current-cabinet-id (result / status response cabinet-id)
+  (setq status (car result))
+  (setq response (cadr result))
+  (if (and (>= status 200) (< status 300))
+    (progn
+      (setq cabinet-id (eskd-json-token-value response "cabinet_id"))
+      (if (eskd-non-empty cabinet-id)
+        (progn
+          (setq *eskd-current-cabinet-id* cabinet-id)
+          (princ (strcat "\nCABINET_ID: " cabinet-id))
+        )
+      )
+    )
+  )
+  result
+)
+
 (defun eskd-getstring-default (prompt default / value)
   (setq value (getstring T (strcat "\n" prompt " <" default ">: ")))
   (if (= value "")
@@ -374,10 +434,8 @@
 )
 
 (defun c:ESKD_CONTEXT_SET ()
-  (setq *eskd-current-project-id* (eskd-getstring-default "PROJECT_ID" *eskd-current-project-id*))
   (setq *eskd-current-project-name* (eskd-getstring-default "PROJECT_NAME" *eskd-current-project-name*))
   (setq *eskd-current-project-description* (eskd-getstring-default "PROJECT_DESCRIPTION" *eskd-current-project-description*))
-  (setq *eskd-current-cabinet-id* (eskd-getstring-default "CABINET_ID" *eskd-current-cabinet-id*))
   (setq *eskd-current-cabinet-name* (eskd-getstring-default "CABINET_NAME" *eskd-current-cabinet-name*))
   (setq *eskd-current-cabinet-description* (eskd-getstring-default "CABINET_DESCRIPTION" *eskd-current-cabinet-description*))
   (eskd-context-print)
@@ -406,13 +464,16 @@
 (defun c:ESKD_PROJECT_CREATE (/ attrs result)
   (if (eskd-require-auth)
     (progn
-      (if (eskd-require-project-context)
+      (if (eskd-require-project-name)
         (progn
           (setq attrs (eskd-current-project-attrs))
-        (eskd-print-http-result
-          "Project CREATE"
-          (eskd-http-json "POST" (eskd-api-url "/api/projects/") (eskd-project-body attrs))
-        )
+          (setq result
+            (eskd-print-http-result
+              "Project CREATE"
+              (eskd-http-json "POST" (eskd-api-url "/api/projects/") (eskd-project-body attrs))
+            )
+          )
+          (eskd-store-current-project-id result)
         )
       )
     )
@@ -469,22 +530,29 @@
 (defun c:ESKD_PROJECT_SYNC (/ attrs id)
   (if (eskd-require-auth)
     (progn
-      (if (eskd-require-project-context)
+      (if (eskd-require-project-name)
         (progn
           (setq attrs (eskd-current-project-attrs))
-          (setq id (eskd-find-project-id attrs))
+          (setq id nil)
+          (if (eskd-context-has-project)
+            (setq id (eskd-find-project-id attrs))
+          )
           (if id
-            (eskd-print-http-result
-              "Project SYNC update"
-              (eskd-http-json
-                "PATCH"
-                (eskd-api-url (strcat "/api/projects/" (itoa id) "/"))
-                (eskd-project-body attrs)
+            (eskd-store-current-project-id
+              (eskd-print-http-result
+                "Project SYNC update"
+                (eskd-http-json
+                  "PATCH"
+                  (eskd-api-url (strcat "/api/projects/" (itoa id) "/"))
+                  (eskd-project-body attrs)
+                )
               )
             )
-            (eskd-print-http-result
-              "Project SYNC create"
-              (eskd-http-json "POST" (eskd-api-url "/api/projects/") (eskd-project-body attrs))
+            (eskd-store-current-project-id
+              (eskd-print-http-result
+                "Project SYNC create"
+                (eskd-http-json "POST" (eskd-api-url "/api/projects/") (eskd-project-body attrs))
+              )
             )
           )
         )
@@ -511,14 +579,16 @@
 (defun c:ESKD_CABINET_CREATE (/ attrs project-id)
   (if (eskd-require-auth)
     (progn
-      (if (eskd-require-cabinet-context)
+      (if (and (eskd-require-project-context) (eskd-require-cabinet-name))
         (progn
           (setq attrs (eskd-current-cabinet-attrs))
           (setq project-id (eskd-find-project-id attrs))
           (if project-id
-            (eskd-print-http-result
-              "Cabinet CREATE"
-              (eskd-http-json "POST" (eskd-api-url "/api/cabinets/") (eskd-cabinet-body attrs project-id))
+            (eskd-store-current-cabinet-id
+              (eskd-print-http-result
+                "Cabinet CREATE"
+                (eskd-http-json "POST" (eskd-api-url "/api/cabinets/") (eskd-cabinet-body attrs project-id))
+              )
             )
             (princ "\nParent project was not found. Create/sync project first.")
           )
@@ -582,25 +652,32 @@
 (defun c:ESKD_CABINET_SYNC (/ attrs id project-id)
   (if (eskd-require-auth)
     (progn
-      (if (eskd-require-cabinet-context)
+      (if (and (eskd-require-project-context) (eskd-require-cabinet-name))
         (progn
           (setq attrs (eskd-current-cabinet-attrs))
           (setq project-id (eskd-find-project-id attrs))
           (if project-id
             (progn
-              (setq id (eskd-find-cabinet-id attrs))
+              (setq id nil)
+              (if (eskd-context-has-cabinet)
+                (setq id (eskd-find-cabinet-id attrs))
+              )
               (if id
-                (eskd-print-http-result
-                  "Cabinet SYNC update"
-                  (eskd-http-json
-                    "PATCH"
-                    (eskd-api-url (strcat "/api/cabinets/" (itoa id) "/"))
-                    (eskd-cabinet-body attrs project-id)
+                (eskd-store-current-cabinet-id
+                  (eskd-print-http-result
+                    "Cabinet SYNC update"
+                    (eskd-http-json
+                      "PATCH"
+                      (eskd-api-url (strcat "/api/cabinets/" (itoa id) "/"))
+                      (eskd-cabinet-body attrs project-id)
+                    )
                   )
                 )
-                (eskd-print-http-result
-                  "Cabinet SYNC create"
-                  (eskd-http-json "POST" (eskd-api-url "/api/cabinets/") (eskd-cabinet-body attrs project-id))
+                (eskd-store-current-cabinet-id
+                  (eskd-print-http-result
+                    "Cabinet SYNC create"
+                    (eskd-http-json "POST" (eskd-api-url "/api/cabinets/") (eskd-cabinet-body attrs project-id))
+                  )
                 )
               )
             )

@@ -4,7 +4,7 @@ from marking.models import Cabinet, Project, WireColor, WireEndpoint, WireType
 
 
 class ProjectSerializer(serializers.ModelSerializer):
-    project_id = serializers.CharField(source="code")
+    project_id = serializers.CharField(source="code", read_only=True)
 
     class Meta:
         model = Project
@@ -16,12 +16,12 @@ class ProjectSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "project_id", "created_at", "updated_at"]
 
 
 class CabinetSerializer(serializers.ModelSerializer):
     project_id = serializers.CharField(source="project.code", read_only=True)
-    cabinet_id = serializers.CharField(source="code")
+    cabinet_id = serializers.CharField(source="code", read_only=True)
 
     class Meta:
         model = Cabinet
@@ -35,7 +35,7 @@ class CabinetSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "project_id", "created_at", "updated_at"]
+        read_only_fields = ["id", "project_id", "cabinet_id", "created_at", "updated_at"]
 
 
 class WireTypeSerializer(serializers.ModelSerializer):

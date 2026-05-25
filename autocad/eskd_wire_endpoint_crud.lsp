@@ -288,29 +288,51 @@
   )
 )
 
-(defun c:ESKD_WIRE_LINK_REF (/ pair-a pair-b entity-a entity-b attrs-a attrs-b ref-id)
+(defun eskd-empty-mark-value (value)
+  (or (not value) (= value "") (= value "-"))
+)
+
+(defun eskd-empty-marking-block (attrs)
+  (and
+    (eskd-empty-mark-value (eskd-attr attrs "MARK_1"))
+    (eskd-empty-mark-value (eskd-attr attrs "MARK_2"))
+  )
+)
+
+(defun c:ESKD_WIRE_LINK_REF (/ pair-a pair-b entity-a entity-b attrs-a attrs-b mark-1 mark-2 ref-id)
   (setq pair-a (eskd-wire-selected-entity-and-attrs "\nSelect first WireEndpoint block: "))
   (if pair-a
     (progn
-      (setq pair-b (eskd-wire-selected-entity-and-attrs "\nClick linked WireEndpoint block: "))
+      (setq pair-b (eskd-wire-selected-entity-and-attrs "\nClick empty linked WireEndpoint block: "))
       (if pair-b
         (progn
           (setq entity-a (car pair-a))
           (setq attrs-a (cadr pair-a))
           (setq entity-b (car pair-b))
           (setq attrs-b (cadr pair-b))
-          (setq ref-id
-            (cond
-              ((eskd-non-empty (eskd-attr attrs-a "REF_ID")) (eskd-attr attrs-a "REF_ID"))
-              ((eskd-non-empty (eskd-attr attrs-b "REF_ID")) (eskd-attr attrs-b "REF_ID"))
-              (T (eskd-generate-ref-id entity-a entity-b))
+          (if (not (eskd-empty-marking-block attrs-b))
+            (princ "\nSecond block must be empty: MARK_1 and MARK_2 should be '-'.")
+            (progn
+              (setq mark-1 (eskd-attr attrs-a "MARK_1"))
+              (setq mark-2 (eskd-attr attrs-a "MARK_2"))
+              (if (eskd-empty-mark-value mark-1) (setq mark-1 "-"))
+              (if (eskd-empty-mark-value mark-2) (setq mark-2 "-"))
+              (setq ref-id
+                (cond
+                  ((eskd-non-empty (eskd-attr attrs-a "REF_ID")) (eskd-attr attrs-a "REF_ID"))
+                  ((eskd-non-empty (eskd-attr attrs-b "REF_ID")) (eskd-attr attrs-b "REF_ID"))
+                  (T (eskd-generate-ref-id entity-a entity-b))
+                )
+              )
+              (eskd-set-block-attr entity-a "REF_ID" ref-id)
+              (eskd-set-block-attr entity-b "REF_ID" ref-id)
+              (eskd-set-block-attr entity-b "MARK_1" mark-2)
+              (eskd-set-block-attr entity-b "MARK_2" mark-1)
+              (eskd-set-block-attr entity-a "SYNC_STATUS" "DIRTY")
+              (eskd-set-block-attr entity-b "SYNC_STATUS" "DIRTY")
+              (princ (strcat "\nREF_ID assigned. Second block direction: " mark-2 " / " mark-1))
             )
           )
-          (eskd-set-block-attr entity-a "REF_ID" ref-id)
-          (eskd-set-block-attr entity-b "REF_ID" ref-id)
-          (eskd-set-block-attr entity-a "SYNC_STATUS" "DIRTY")
-          (eskd-set-block-attr entity-b "SYNC_STATUS" "DIRTY")
-          (princ (strcat "\nREF_ID assigned to both blocks: " ref-id))
         )
       )
     )

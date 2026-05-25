@@ -16,12 +16,23 @@ eskd_main : dialog {
       : text { label = "UUID проекта:"; width = 20; }
       : text { key = "project_id"; label = ""; width = 40; }
     }
+    : row {
+      : popup_list { key = "project_select"; label = "Проекты"; edit_width = 32; }
+      : button { key = "projects_load"; label = "Загрузить"; width = 14; }
+      : button { key = "project_select_apply"; label = "Выбрать"; width = 14; }
+    }
     : edit_box { key = "project_code"; label = "Шифр проекта"; edit_width = 28; }
     : edit_box { key = "project_name"; label = "Название проекта"; edit_width = 28; }
     : row {
       : text { label = "UUID шкафа:"; width = 20; }
       : text { key = "cabinet_id"; label = ""; width = 40; }
     }
+    : row {
+      : popup_list { key = "cabinet_select"; label = "Шкафы"; edit_width = 32; }
+      : button { key = "cabinets_load"; label = "Загрузить"; width = 14; }
+      : button { key = "cabinet_select_apply"; label = "Выбрать"; width = 14; }
+    }
+    : edit_box { key = "cabinet_code"; label = "Код шкафа"; edit_width = 28; }
     : edit_box { key = "cabinet_name"; label = "Название шкафа"; edit_width = 28; }
     : edit_box { key = "cabinet_description"; label = "Описание шкафа"; edit_width = 28; }
     : row {

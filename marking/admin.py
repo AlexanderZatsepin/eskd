@@ -5,17 +5,18 @@ from marking.models import Cabinet, Project, WireColor, WireEndpoint, WireType
 
 @admin.register(Project)
 class ProjectAdmin(admin.ModelAdmin):
-    list_display = ["project_code", "code", "name", "updated_at"]
+    list_display = ["project_code", "name", "is_active", "code", "updated_at"]
+    list_filter = ["is_active"]
     search_fields = ["project_code", "code", "name"]
-    fields = ["project_code", "name", "code", "created_at", "updated_at"]
+    fields = ["project_code", "name", "is_active", "code", "created_at", "updated_at"]
     readonly_fields = ["code", "created_at", "updated_at"]
 
 
 @admin.register(Cabinet)
 class CabinetAdmin(admin.ModelAdmin):
-    list_display = ["code", "project", "name", "description", "updated_at"]
+    list_display = ["cabinet_code", "code", "project", "name", "description", "updated_at"]
     list_filter = ["project"]
-    search_fields = ["code", "name", "description", "project__code", "project__project_code"]
+    search_fields = ["cabinet_code", "code", "name", "description", "project__code", "project__project_code"]
     readonly_fields = ["code", "created_at", "updated_at"]
 
 

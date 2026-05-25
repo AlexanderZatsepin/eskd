@@ -7,6 +7,7 @@ class Project(models.Model):
     code = models.CharField("UUID проекта", max_length=36, blank=True)
     project_code = models.CharField("Шифр проекта", max_length=128, unique=True)
     name = models.CharField("Название проекта", max_length=255)
+    is_active = models.BooleanField("Активный", default=True)
     created_at = models.DateTimeField("Создано", auto_now_add=True)
     updated_at = models.DateTimeField("Обновлено", auto_now=True)
 
@@ -45,6 +46,7 @@ class Cabinet(models.Model):
         verbose_name="Проект",
     )
     code = models.CharField("UUID шкафа", max_length=36, blank=True)
+    cabinet_code = models.CharField("Код шкафа", max_length=128)
     name = models.CharField("Название шкафа", max_length=255, blank=True)
     description = models.CharField("Описание шкафа", max_length=255, blank=True)
     created_at = models.DateTimeField("Создано", auto_now_add=True)
@@ -53,16 +55,20 @@ class Cabinet(models.Model):
     class Meta:
         verbose_name = "Шкаф"
         verbose_name_plural = "Шкафы"
-        ordering = ["project__project_code", "code"]
+        ordering = ["project__project_code", "cabinet_code"]
         constraints = [
             models.UniqueConstraint(
                 fields=["project", "code"],
                 name="unique_cabinet_per_project",
+            ),
+            models.UniqueConstraint(
+                fields=["project", "cabinet_code"],
+                name="unique_cabinet_code_per_project",
             )
         ]
 
     def __str__(self):
-        return f"{self.project.project_code} / {self.code}"
+        return f"{self.project.project_code} / {self.cabinet_code}"
 
     def save(self, *args, **kwargs):
         if not self.code:
@@ -152,7 +158,7 @@ class WireEndpoint(models.Model):
     class Meta:
         verbose_name = "Маркировка"
         verbose_name_plural = "Маркировка"
-        ordering = ["cabinet__project__project_code", "cabinet__code", "mark_1", "ref"]
+        ordering = ["cabinet__project__project_code", "cabinet__cabinet_code", "mark_1", "ref"]
         indexes = [
             models.Index(fields=["ref"]),
             models.Index(fields=["sync_status"]),

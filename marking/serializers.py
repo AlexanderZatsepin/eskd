@@ -13,6 +13,7 @@ class ProjectSerializer(serializers.ModelSerializer):
             "project_id",
             "project_code",
             "name",
+            "is_active",
             "created_at",
             "updated_at",
         ]
@@ -21,6 +22,7 @@ class ProjectSerializer(serializers.ModelSerializer):
 
 class CabinetSerializer(serializers.ModelSerializer):
     project_id = serializers.CharField(source="project.code", read_only=True)
+    project_code = serializers.CharField(source="project.project_code", read_only=True)
     cabinet_id = serializers.CharField(source="code", read_only=True)
 
     class Meta:
@@ -29,13 +31,15 @@ class CabinetSerializer(serializers.ModelSerializer):
             "id",
             "project",
             "project_id",
+            "project_code",
             "cabinet_id",
+            "cabinet_code",
             "name",
             "description",
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "project_id", "cabinet_id", "created_at", "updated_at"]
+        read_only_fields = ["id", "project_id", "project_code", "cabinet_id", "created_at", "updated_at"]
 
 
 class WireTypeSerializer(serializers.ModelSerializer):

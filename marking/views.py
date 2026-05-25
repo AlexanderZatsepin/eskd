@@ -18,11 +18,14 @@ class ProjectViewSet(viewsets.ModelViewSet):
         queryset = Project.objects.all()
         project_id = self.request.query_params.get("project_id")
         project_code = self.request.query_params.get("project_code")
+        active = self.request.query_params.get("active", "true").lower()
 
         if project_id:
             queryset = queryset.filter(code=project_id)
         if project_code:
             queryset = queryset.filter(project_code=project_code)
+        if active not in ("all", "*"):
+            queryset = queryset.filter(is_active=active not in ("0", "false", "no"))
 
         return queryset
 
@@ -35,6 +38,7 @@ class CabinetViewSet(viewsets.ModelViewSet):
         project_id = self.request.query_params.get("project_id")
         project_code = self.request.query_params.get("project_code")
         cabinet_id = self.request.query_params.get("cabinet_id")
+        cabinet_code = self.request.query_params.get("cabinet_code")
 
         if project_id:
             queryset = queryset.filter(project__code=project_id)
@@ -42,6 +46,8 @@ class CabinetViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(project__project_code=project_code)
         if cabinet_id:
             queryset = queryset.filter(code=cabinet_id)
+        if cabinet_code:
+            queryset = queryset.filter(cabinet_code=cabinet_code)
 
         return queryset
 

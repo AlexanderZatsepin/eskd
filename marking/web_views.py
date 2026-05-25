@@ -39,11 +39,11 @@ def _cabinet_map(projects):
         result[str(project.pk)] = [
             {
                 "id": cabinet.pk,
-                "code": cabinet.code,
+                "code": cabinet.cabinet_code,
                 "name": cabinet.name,
                 "description": cabinet.description,
             }
-            for cabinet in project.cabinets.all().order_by("code")
+            for cabinet in project.cabinets.all().order_by("cabinet_code")
         ]
     return result
 
@@ -65,7 +65,7 @@ def _build_cambrics_response(cabinet):
     sheet.title = "Кембрики"
 
     sheet.append(["Проект", cabinet.project.project_code])
-    sheet.append(["Шкаф", cabinet.code])
+    sheet.append(["Шкаф", cabinet.cabinet_code])
     sheet.append(["Название", cabinet.name])
     sheet.append([])
 
@@ -112,7 +112,7 @@ def _build_cambrics_response(cabinet):
 
 
 def _endpoint_label(endpoint):
-    return f"{endpoint.mark_1} ({endpoint.cabinet.code})"
+    return f"{endpoint.mark_1} ({endpoint.cabinet.cabinet_code})"
 
 
 def _format_cambrics_sheet(sheet, endpoint_count):
@@ -160,5 +160,5 @@ def _format_cambrics_sheet(sheet, endpoint_count):
 
 
 def _cambrics_filename(cabinet):
-    base = slugify(f"cambrics-{cabinet.project.project_code}-{cabinet.code}", allow_unicode=False)
+    base = slugify(f"cambrics-{cabinet.project.project_code}-{cabinet.cabinet_code}", allow_unicode=False)
     return f"{base or 'cambrics'}.xlsx"

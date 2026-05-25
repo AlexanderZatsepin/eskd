@@ -13,6 +13,10 @@ from marking.views import (
 from marking.web_views import cambrics_report
 
 
+admin.site.site_header = "Администрирование ESKD"
+admin.site.site_title = "ESKD"
+admin.site.index_title = "Панель управления"
+
 router = DefaultRouter()
 router.register("projects", ProjectViewSet, basename="project")
 router.register("cabinets", CabinetViewSet, basename="cabinet")

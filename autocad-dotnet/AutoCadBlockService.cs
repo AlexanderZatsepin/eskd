@@ -18,6 +18,17 @@ namespace Eskd.AutoCAD
         public string SyncStatus { get; set; }
     }
 
+    internal sealed class MarkingCopyResult
+    {
+        public int Count { get; set; }
+    }
+
+    internal sealed class OriginalMarkingBlock
+    {
+        public ObjectId ObjectId { get; set; }
+        public Dictionary<string, string> Attributes { get; set; }
+    }
+
     internal sealed class AutoCadBlockService
     {
         public const string MarkingBlockName = "Block_Test_Marking";
@@ -62,7 +73,7 @@ namespace Eskd.AutoCAD
                     throw new InvalidOperationException("В чертеже нет блока " + MarkingBlockName + ".");
                 }
 
-                var modelSpace = (BlockTableRecord)transaction.GetObject(blockTable[BlockTableRecord.ModelSpace], OpenMode.ForWrite);
+                var modelSpace = (BlockTableRecord)transaction.GetObject(blockTable[BlockTableRecord.ModelSpace], OpenMode.ForRead);
                 var definition = (BlockTableRecord)transaction.GetObject(blockTable[MarkingBlockName], OpenMode.ForRead);
 
                 var reference = new BlockReference(point, definition.ObjectId);
@@ -98,7 +109,7 @@ namespace Eskd.AutoCAD
             using (var transaction = database.TransactionManager.StartTransaction())
             {
                 var blockTable = (BlockTable)transaction.GetObject(database.BlockTableId, OpenMode.ForRead);
-                var modelSpace = (BlockTableRecord)transaction.GetObject(blockTable[BlockTableRecord.ModelSpace], OpenMode.ForRead);
+                var modelSpace = (BlockTableRecord)transaction.GetObject(blockTable[BlockTableRecord.ModelSpace], OpenMode.ForWrite);
 
                 foreach (ObjectId id in modelSpace)
                 {
@@ -149,14 +160,9 @@ namespace Eskd.AutoCAD
             using (document.LockDocument())
             using (var transaction = database.TransactionManager.StartTransaction())
             {
-                foreach (SelectedObject selected in selection.Value)
+                foreach (ObjectId selectedId in selection.Value.GetObjectIds())
                 {
-                    if (selected == null)
-                    {
-                        continue;
-                    }
-
-                    var reference = transaction.GetObject(selected.ObjectId, OpenMode.ForRead) as BlockReference;
+                    var reference = transaction.GetObject(selectedId, OpenMode.ForRead) as BlockReference;
                     if (reference == null || !IsBlock(reference, transaction, MarkingBlockName))
                     {
                         continue;
@@ -305,6 +311,155 @@ namespace Eskd.AutoCAD
             }
         }
 
+        public MarkingCopyResult CopySelectedMarkingsWithNewIds(
+            EskdProject project,
+            EskdCabinet cabinet,
+            int cabinetDbId,
+            Func<EndpointCreateRequest, EskdWireEndpoint> createEndpoint)
+        {
+            var document = Application.DocumentManager.MdiActiveDocument;
+            var database = document.Database;
+            var editor = document.Editor;
+
+            var selection = editor.GetSelection(new SelectionFilter(new[] { new TypedValue(0, "INSERT") }));
+            if (selection.Status != PromptStatus.OK)
+            {
+                throw new OperationCanceledException("Выбор блоков отменен.");
+            }
+
+            var basePointResult = editor.GetPoint("\nБазовая точка копирования: ");
+            if (basePointResult.Status != PromptStatus.OK)
+            {
+                throw new OperationCanceledException("Копирование отменено.");
+            }
+
+            var targetOptions = new PromptPointOptions("\nНовая точка вставки: ");
+            targetOptions.BasePoint = basePointResult.Value;
+            targetOptions.UseBasePoint = true;
+            var targetPointResult = editor.GetPoint(targetOptions);
+            if (targetPointResult.Status != PromptStatus.OK)
+            {
+                throw new OperationCanceledException("Копирование отменено.");
+            }
+
+            using (document.LockDocument())
+            using (var transaction = database.TransactionManager.StartTransaction())
+            {
+                var originals = SelectedContextMarkings(selection.Value, transaction, project, cabinet);
+                if (originals.Count == 0)
+                {
+                    throw new InvalidOperationException("В выборе нет маркировок выбранного проекта и шкафа.");
+                }
+
+                var refMap = NewRefMap(originals);
+                var ids = new ObjectIdCollection();
+                foreach (var original in originals)
+                {
+                    ids.Add(original.ObjectId);
+                }
+
+                var blockTable = (BlockTable)transaction.GetObject(database.BlockTableId, OpenMode.ForRead);
+                var modelSpace = (BlockTableRecord)transaction.GetObject(blockTable[BlockTableRecord.ModelSpace], OpenMode.ForWrite);
+                var idMap = new IdMapping();
+                database.DeepCloneObjects(ids, modelSpace.ObjectId, idMap, false);
+                var cloneIds = CloneIdMap(idMap);
+                var displacement = Matrix3d.Displacement(targetPointResult.Value - basePointResult.Value);
+
+                foreach (var original in originals)
+                {
+                    ObjectId cloneId;
+                    if (!cloneIds.TryGetValue(original.ObjectId, out cloneId))
+                    {
+                        continue;
+                    }
+
+                    var oldRefId = Attr(original.Attributes, "REF_ID");
+                    var newRefId = refMap.ContainsKey(oldRefId) ? refMap[oldRefId] : string.Empty;
+                    var endpoint = createEndpoint(new EndpointCreateRequest
+                    {
+                        CabinetDbId = cabinetDbId,
+                        RefId = newRefId,
+                        Mark1 = Attr(original.Attributes, "MARK_1"),
+                        Mark2 = Attr(original.Attributes, "MARK_2"),
+                        WireType = Attr(original.Attributes, "WIRE_TYPE"),
+                        WireColor = Attr(original.Attributes, "WIRE_COLOR")
+                    });
+
+                    var clone = (BlockReference)transaction.GetObject(cloneId, OpenMode.ForWrite);
+                    clone.TransformBy(displacement);
+                    SetAttributes(clone, transaction, new Dictionary<string, string>
+                    {
+                        {"ENDPOINT_ID", endpoint.EndpointId},
+                        {"PROJECT_ID", project.ProjectId},
+                        {"CABINET_ID", cabinet.CabinetId},
+                        {"REF_ID", endpoint.RefId ?? string.Empty},
+                        {"MARK_1", endpoint.Mark1 ?? "-"},
+                        {"MARK_2", endpoint.Mark2 ?? "-"},
+                        {"WIRE_TYPE", string.IsNullOrWhiteSpace(endpoint.WireType) ? "-" : endpoint.WireType},
+                        {"WIRE_COLOR", string.IsNullOrWhiteSpace(endpoint.WireColor) ? "-" : endpoint.WireColor},
+                        {"SYNC_STATUS", "SYNCED"}
+                    });
+                }
+
+                transaction.Commit();
+                return new MarkingCopyResult { Count = originals.Count };
+            }
+        }
+
+        public MarkingCopyResult ReissueSelectedIds(
+            EskdProject project,
+            EskdCabinet cabinet,
+            int cabinetDbId,
+            Func<EndpointCreateRequest, EskdWireEndpoint> createEndpoint)
+        {
+            var document = Application.DocumentManager.MdiActiveDocument;
+            var database = document.Database;
+            var editor = document.Editor;
+
+            var selection = editor.GetSelection(new SelectionFilter(new[] { new TypedValue(0, "INSERT") }));
+            if (selection.Status != PromptStatus.OK)
+            {
+                throw new OperationCanceledException("Выбор блоков отменен.");
+            }
+
+            using (document.LockDocument())
+            using (var transaction = database.TransactionManager.StartTransaction())
+            {
+                var originals = SelectedContextMarkings(selection.Value, transaction, project, cabinet);
+                if (originals.Count == 0)
+                {
+                    throw new InvalidOperationException("В выборе нет маркировок выбранного проекта и шкафа.");
+                }
+
+                var refMap = NewRefMap(originals);
+                foreach (var original in originals)
+                {
+                    var oldRefId = Attr(original.Attributes, "REF_ID");
+                    var newRefId = refMap.ContainsKey(oldRefId) ? refMap[oldRefId] : string.Empty;
+                    var endpoint = createEndpoint(new EndpointCreateRequest
+                    {
+                        CabinetDbId = cabinetDbId,
+                        RefId = newRefId,
+                        Mark1 = Attr(original.Attributes, "MARK_1"),
+                        Mark2 = Attr(original.Attributes, "MARK_2"),
+                        WireType = Attr(original.Attributes, "WIRE_TYPE"),
+                        WireColor = Attr(original.Attributes, "WIRE_COLOR")
+                    });
+
+                    var reference = (BlockReference)transaction.GetObject(original.ObjectId, OpenMode.ForRead);
+                    SetAttributes(reference, transaction, new Dictionary<string, string>
+                    {
+                        {"ENDPOINT_ID", endpoint.EndpointId},
+                        {"REF_ID", endpoint.RefId ?? string.Empty},
+                        {"SYNC_STATUS", "SYNCED"}
+                    });
+                }
+
+                transaction.Commit();
+                return new MarkingCopyResult { Count = originals.Count };
+            }
+        }
+
         private static bool IsBlock(BlockReference reference, Transaction transaction, string blockName)
         {
             var record = (BlockTableRecord)transaction.GetObject(reference.DynamicBlockTableRecord, OpenMode.ForRead);
@@ -324,6 +479,74 @@ namespace Eskd.AutoCAD
             }
 
             return result.ObjectId;
+        }
+
+        private static List<OriginalMarkingBlock> SelectedContextMarkings(
+            SelectionSet selection,
+            Transaction transaction,
+            EskdProject project,
+            EskdCabinet cabinet)
+        {
+            var result = new List<OriginalMarkingBlock>();
+            foreach (ObjectId selectedId in selection.GetObjectIds())
+            {
+                var reference = transaction.GetObject(selectedId, OpenMode.ForRead) as BlockReference;
+                if (reference == null || !IsBlock(reference, transaction, MarkingBlockName))
+                {
+                    continue;
+                }
+
+                var attributes = ReadAttributes(reference, transaction);
+                if (!IsCurrentContext(attributes, project, cabinet))
+                {
+                    continue;
+                }
+
+                result.Add(new OriginalMarkingBlock
+                {
+                    ObjectId = selectedId,
+                    Attributes = attributes
+                });
+            }
+            return result;
+        }
+
+        private static Dictionary<string, string> NewRefMap(List<OriginalMarkingBlock> originals)
+        {
+            var counts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            foreach (var original in originals)
+            {
+                var refId = Attr(original.Attributes, "REF_ID");
+                if (string.IsNullOrWhiteSpace(refId))
+                {
+                    continue;
+                }
+
+                counts[refId] = counts.ContainsKey(refId) ? counts[refId] + 1 : 1;
+            }
+
+            var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var pair in counts)
+            {
+                if (pair.Value > 1)
+                {
+                    result[pair.Key] = Guid.NewGuid().ToString();
+                }
+            }
+            return result;
+        }
+
+        private static Dictionary<ObjectId, ObjectId> CloneIdMap(IdMapping idMap)
+        {
+            var result = new Dictionary<ObjectId, ObjectId>();
+            foreach (IdPair pair in idMap)
+            {
+                if (pair.IsCloned)
+                {
+                    result[pair.Key] = pair.Value;
+                }
+            }
+            return result;
         }
 
         private static Dictionary<string, string> ReadAttributes(BlockReference reference, Transaction transaction)
@@ -371,7 +594,10 @@ namespace Eskd.AutoCAD
 
         private static void SetAttributes(BlockReference reference, Transaction transaction, Dictionary<string, string> values)
         {
-            reference.UpgradeOpen();
+            if (!reference.IsWriteEnabled)
+            {
+                reference.UpgradeOpen();
+            }
             foreach (ObjectId id in reference.AttributeCollection)
             {
                 var attribute = transaction.GetObject(id, OpenMode.ForWrite) as AttributeReference;

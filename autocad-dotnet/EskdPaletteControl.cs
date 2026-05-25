@@ -160,6 +160,11 @@ namespace Eskd.AutoCAD
             linkButtons.Controls.Add(Button("Связать", OnLinkMarkings));
             linkButtons.Controls.Add(Button("Очистить связь", OnClearRef));
             group.Controls.Add(linkButtons);
+
+            var copyButtons = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true };
+            copyButtons.Controls.Add(Button("Копировать маркировки", OnCopyMarkings));
+            copyButtons.Controls.Add(Button("Переоформить ID выбранным", OnReissueSelectedIds));
+            group.Controls.Add(copyButtons);
             return group;
         }
 
@@ -303,6 +308,36 @@ namespace Eskd.AutoCAD
                 var patch = _blocks.ClearSelectedRef(_selectedProject, _selectedCabinet);
                 PatchEndpoint(patch);
                 MessageBox.Show("Связь очищена.", "ESKD", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            });
+        }
+
+        private void OnCopyMarkings(object sender, EventArgs eventArgs)
+        {
+            RunUi(() =>
+            {
+                RequireProject();
+                RequireCabinet();
+                var result = _blocks.CopySelectedMarkingsWithNewIds(
+                    _selectedProject,
+                    _selectedCabinet,
+                    _selectedCabinet.Id,
+                    _api.CreateEndpoint);
+                MessageBox.Show("Скопировано маркировок: " + result.Count, "ESKD", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            });
+        }
+
+        private void OnReissueSelectedIds(object sender, EventArgs eventArgs)
+        {
+            RunUi(() =>
+            {
+                RequireProject();
+                RequireCabinet();
+                var result = _blocks.ReissueSelectedIds(
+                    _selectedProject,
+                    _selectedCabinet,
+                    _selectedCabinet.Id,
+                    _api.CreateEndpoint);
+                MessageBox.Show("Переоформлено маркировок: " + result.Count, "ESKD", MessageBoxButtons.OK, MessageBoxIcon.Information);
             });
         }
 

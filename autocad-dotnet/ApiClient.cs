@@ -142,14 +142,27 @@ namespace Eskd.AutoCAD
 
         public EskdWireEndpoint CreateEndpoint(int cabinetDbId, string mark1, string mark2)
         {
+            return CreateEndpoint(new EndpointCreateRequest
+            {
+                CabinetDbId = cabinetDbId,
+                RefId = string.Empty,
+                Mark1 = mark1,
+                Mark2 = mark2,
+                WireType = "-",
+                WireColor = "-"
+            });
+        }
+
+        public EskdWireEndpoint CreateEndpoint(EndpointCreateRequest request)
+        {
             var payload = _json.Serialize(new Dictionary<string, object>
             {
-                {"cabinet", cabinetDbId},
-                {"ref_id", string.Empty},
-                {"mark_1", string.IsNullOrWhiteSpace(mark1) ? "-" : mark1},
-                {"mark_2", string.IsNullOrWhiteSpace(mark2) ? "-" : mark2},
-                {"wire_type", "-"},
-                {"wire_color", "-"},
+                {"cabinet", request.CabinetDbId},
+                {"ref_id", request.RefId ?? string.Empty},
+                {"mark_1", string.IsNullOrWhiteSpace(request.Mark1) ? "-" : request.Mark1},
+                {"mark_2", string.IsNullOrWhiteSpace(request.Mark2) ? "-" : request.Mark2},
+                {"wire_type", string.IsNullOrWhiteSpace(request.WireType) ? "-" : request.WireType},
+                {"wire_color", string.IsNullOrWhiteSpace(request.WireColor) ? "-" : request.WireColor},
                 {"sync_status", "SYNCED"}
             });
             var response = Request("POST", "/api/wire-endpoints/", payload, "application/json", true);

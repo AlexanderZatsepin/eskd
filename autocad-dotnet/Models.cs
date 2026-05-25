@@ -44,6 +44,16 @@ namespace Eskd.AutoCAD
         public string SyncStatus { get; set; }
     }
 
+    internal sealed class EndpointCreateRequest
+    {
+        public int CabinetDbId { get; set; }
+        public string RefId { get; set; }
+        public string Mark1 { get; set; }
+        public string Mark2 { get; set; }
+        public string WireType { get; set; }
+        public string WireColor { get; set; }
+    }
+
     internal sealed class WireDictionaryItem
     {
         public int Id { get; set; }
